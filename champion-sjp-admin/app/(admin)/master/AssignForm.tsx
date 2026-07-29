@@ -2,6 +2,7 @@
 
 import { useFormState } from "react-dom";
 import { addAssignment } from "./actions";
+import CustomerSearch from "./CustomerSearch";
 
 const HARI = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
@@ -18,10 +19,8 @@ export default function AssignForm({ salesmen }: { salesmen: { emp_id: string; e
           ))}
         </select>
       </div>
-      <div>
-        <label className="lbl">Cust_Code</label>
-        <input name="cust_code" className="inp" placeholder="mis. BJM28" required />
-      </div>
+      <CustomerSearch />
+
       <div>
         <label className="lbl">Frekuensi</label>
         <select name="frekuensi" className="inp">

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { q, q1 } from "@/lib/db";
 
-export async function addAssignment(formData: FormData) {
+export async function addAssignment(_prev: any, formData: FormData) {
   const cust_code = String(formData.get("cust_code") || "").trim();
   const emp_id = String(formData.get("emp_id") || "").trim();
   const frekuensi = String(formData.get("frekuensi") || "W");
