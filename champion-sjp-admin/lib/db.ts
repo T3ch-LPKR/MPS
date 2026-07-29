@@ -19,9 +19,9 @@ function makePool() {
     max: 5,
     idleTimeoutMillis: 30000,
   });
-  // set search_path tiap koneksi baru
+  // set search_path tiap koneksi baru (extensions = tempat pgcrypto crypt/gen_salt di Supabase)
   pool.on("connect", (client) => {
-    client.query(`SET search_path TO "${SCHEMA}", public`);
+    client.query(`SET search_path TO "${SCHEMA}", public, extensions`);
   });
   return pool;
 }
