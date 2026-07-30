@@ -1,16 +1,28 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { q } from "@/lib/db";
+import { q, q1 } from "@/lib/db";
+import { getSession } from "@/lib/session";
+
+function canManageUsers(role?: string) {
+  return role === "admin" || role === "superadmin";
+}
 
 export async function addUser(formData: FormData) {
+  const s = await getSession();
+  if (!canManageUsers(s?.role)) return;
+
   const username = String(formData.get("username") || "").trim();
   const password = String(formData.get("password") || "");
   const full_name = String(formData.get("full_name") || "").trim() || null;
-  const role = String(formData.get("role") || "admin");
+  let role = String(formData.get("role") || "admin");
   const emp_id = String(formData.get("emp_id") || "").trim() || null;
   if (!username || !password) return;
-  // hash bcrypt via pgcrypto
+
+  // hanya superadmin boleh membuat superadmin
+  if (role === "superadmin" && s?.role !== "superadmin") role = "admin";
+  if (!["superadmin", "admin", "hos", "salesman"].includes(role)) role = "admin";
+
   await q(
     `INSERT INTO sjp_user_login (username, password_hash, full_name, role, emp_id, is_active)
      VALUES ($1, crypt($2, gen_salt('bf')), $3, $4, $5, true)
@@ -21,15 +33,29 @@ export async function addUser(formData: FormData) {
 }
 
 export async function resetPassword(formData: FormData) {
+  const s = await getSession();
+  if (!canManageUsers(s?.role)) return;
   const user_id = Number(formData.get("user_id"));
   const password = String(formData.get("password") || "");
   if (!password) return;
+
+  const target = await q1<{ role: string }>(`SELECT role FROM sjp_user_login WHERE user_id=$1`, [user_id]);
+  // password superadmin hanya boleh diubah oleh superadmin
+  if (target?.role === "superadmin" && s?.role !== "superadmin") return;
+
   await q(`UPDATE sjp_user_login SET password_hash = crypt($2, gen_salt('bf')) WHERE user_id = $1`, [user_id, password]);
   revalidatePath("/users");
 }
 
 export async function toggleUser(formData: FormData) {
+  const s = await getSession();
+  if (!canManageUsers(s?.role)) return;
   const user_id = Number(formData.get("user_id"));
+
+  const target = await q1<{ role: string }>(`SELECT role FROM sjp_user_login WHERE user_id=$1`, [user_id]);
+  // akun superadmin hanya boleh dinonaktifkan oleh superadmin
+  if (target?.role === "superadmin" && s?.role !== "superadmin") return;
+
   await q(`UPDATE sjp_user_login SET is_active = NOT is_active WHERE user_id = $1`, [user_id]);
   revalidatePath("/users");
 }

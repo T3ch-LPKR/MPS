@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 type Cust = { cust_code: string; cust_name: string; area: string };
 
-export default function CustomerSearch() {
-  const [term, setTerm] = useState("");
+export default function CustomerSearch({ initialCode, initialName }: { initialCode?: string; initialName?: string }) {
+  const initSel = initialCode ? { cust_code: initialCode, cust_name: initialName || initialCode, area: "" } : null;
+  const [term, setTerm] = useState(initSel ? `${initSel.cust_name} (${initSel.cust_code})` : "");
   const [results, setResults] = useState<Cust[]>([]);
-  const [sel, setSel] = useState<Cust | null>(null);
+  const [sel, setSel] = useState<Cust | null>(initSel);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);

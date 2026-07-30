@@ -10,7 +10,7 @@ export type SessionUser = {
   user_id: number;
   username: string;
   full_name: string | null;
-  role: "admin" | "hos" | "salesman";
+  role: "superadmin" | "admin" | "hos" | "salesman";
   emp_id: string | null;
 };
 
