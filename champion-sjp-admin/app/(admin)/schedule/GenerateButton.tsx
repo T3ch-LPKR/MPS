@@ -1,16 +1,8 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormState } from "react-dom";
 import { generateSchedule } from "./actions";
-
-function Btn() {
-  const { pending } = useFormStatus();
-  return (
-    <button className="btn btn-pri" disabled={pending}>
-      {pending ? "⏳ Memproses jadwal…" : "⚙ Generate Jadwal Minggu Ini"}
-    </button>
-  );
-}
+import SubmitButton from "@/components/SubmitButton";
 
 export default function GenerateButton({ weekStart }: { weekStart: string }) {
   const [state, action] = useFormState(generateSchedule as any, {} as any);
@@ -18,7 +10,7 @@ export default function GenerateButton({ weekStart }: { weekStart: string }) {
     <div className="flex items-center gap-2">
       <form action={action}>
         <input type="hidden" name="week_start" value={weekStart} />
-        <Btn />
+        <SubmitButton className="btn btn-pri" pendingText="Memproses jadwal…">⚙ Generate Jadwal Minggu Ini</SubmitButton>
       </form>
       {state?.ok ? (
         <span className="pill p-ok">✓ {state.message}</span>

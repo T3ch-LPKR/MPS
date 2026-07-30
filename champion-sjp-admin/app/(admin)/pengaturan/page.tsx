@@ -1,5 +1,6 @@
 import { getBoolSetting } from "@/lib/settings";
 import { saveSettings } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function PengaturanPage() {
               <span className="block text-xs text-mut">Jika aktif, salesman TIDAK bisa submit tanpa foto. Jika nonaktif, foto opsional.</span>
             </span>
           </label>
-          <button className="btn btn-pri">Simpan Pengaturan</button>
+          <SubmitButton className="btn btn-pri">Simpan Pengaturan</SubmitButton>
         </form>
       </div>
     </>

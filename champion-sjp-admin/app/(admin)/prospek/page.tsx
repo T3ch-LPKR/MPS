@@ -1,5 +1,6 @@
 import { q } from "@/lib/db";
 import { linkProspek, arsipProspek } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,11 @@ export default async function ProspekPage() {
                     <form action={linkProspek} className="inline-flex gap-1 items-center">
                       <input type="hidden" name="prospek_id" value={r.prospek_id} />
                       <input name="cust_code" className="inp !w-28 !py-1" placeholder="Cust_Code" />
-                      <button className="btn btn-sm">🔗 Tautkan</button>
+                      <SubmitButton className="btn btn-sm" pendingText="…">🔗 Tautkan</SubmitButton>
                     </form>
                     <form action={arsipProspek} className="inline ml-1">
                       <input type="hidden" name="prospek_id" value={r.prospek_id} />
-                      <button className="btn btn-sm">Arsip</button>
+                      <SubmitButton className="btn btn-sm" pendingText="…">Arsip</SubmitButton>
                     </form>
                   </td>
                 </tr>

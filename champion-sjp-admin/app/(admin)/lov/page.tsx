@@ -1,5 +1,6 @@
 import { q } from "@/lib/db";
 import { addLov, toggleLov } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ function Table({ rows }: { rows: Lov[] }) {
             <td className="td">
               <form action={toggleLov}>
                 <input type="hidden" name="lov_id" value={r.lov_id} />
-                <button className="btn btn-sm">{r.is_active ? "Nonaktifkan" : "Aktifkan"}</button>
+                <SubmitButton className="btn btn-sm" pendingText="…">{r.is_active ? "Nonaktifkan" : "Aktifkan"}</SubmitButton>
               </form>
             </td>
           </tr>
@@ -73,7 +74,7 @@ export default async function LovPage() {
             <div><label className="lbl">Kategori</label><input name="kategori" className="inp" placeholder="Info / Order / OOS" /></div>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="perlu_followup" /> Perlu follow-up</label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="perlu_approval" /> Perlu approval</label>
-            <button className="btn btn-pri w-full justify-center">Simpan LOV</button>
+            <SubmitButton className="btn btn-pri w-full justify-center">Simpan LOV</SubmitButton>
             <p className="text-[11px] text-mut">Kode sama (tipe+kode) akan menimpa data lama.</p>
           </form>
         </div>

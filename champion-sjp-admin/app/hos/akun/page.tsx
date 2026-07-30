@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { useFormState } from "react-dom";
-import { changeOwnPassword } from "./actions";
+import { changeOwnPassword } from "../../sales/akun/actions";
 import SubmitButton from "@/components/SubmitButton";
 
-export default function AkunPage() {
+export default function HosAkun() {
   const [state, action] = useFormState(changeOwnPassword as any, {} as any);
   return (
     <div className="p-4 space-y-3">
-      <Link href="/sales" className="text-brand text-sm">‹ Kembali</Link>
-      <div className="card p-4">
-        <div className="font-bold mb-1">Ganti Password</div>
-        <div className="text-xs text-mut mb-3">Password awal = ID salesman Anda. Wajib diganti demi keamanan.</div>
+      <Link href="/hos" className="text-brand text-sm">‹ Kembali</Link>
+      <div className="bg-white rounded-xl p-4">
+        <div className="font-bold mb-3">Ganti Password</div>
         <form action={action} className="space-y-3">
           <div><label className="lbl">Password lama</label><input name="old" type="password" className="inp" required /></div>
           <div><label className="lbl">Password baru</label><input name="new" type="password" className="inp" required /></div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { q, q1 } from "@/lib/db";
 import AssignForm from "./AssignForm";
 import { deleteAssignment } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 export const dynamic = "force-dynamic";
 
@@ -178,7 +179,7 @@ async function AssignList({ salesmen, fq, ffrek, femp, ap }: {
                   <Link href={`/master?tab=assign&edit=${r.assign_id}`} className="btn btn-sm">Edit</Link>
                   <form action={deleteAssignment} className="inline ml-1">
                     <input type="hidden" name="assign_id" value={r.assign_id} />
-                    <button className="btn btn-sm">Hapus</button>
+                    <SubmitButton className="btn btn-sm" pendingText="…">Hapus</SubmitButton>
                   </form>
                 </td>
               </tr>

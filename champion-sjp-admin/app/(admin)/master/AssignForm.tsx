@@ -4,6 +4,7 @@ import { useFormState } from "react-dom";
 import Link from "next/link";
 import { addAssignment } from "./actions";
 import CustomerSearch from "./CustomerSearch";
+import SubmitButton from "@/components/SubmitButton";
 
 const HARI = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
@@ -93,9 +94,9 @@ export default function AssignForm({
       {state?.error ? <div className="text-sm text-bad">{state.error}</div> : null}
       {state?.ok ? <div className="text-sm text-ok">Tersimpan ✓{state.edited ? " (diubah)" : ""}</div> : null}
 
-      <button className="btn btn-pri w-full justify-center">
+      <SubmitButton className="btn btn-pri w-full justify-center">
         {editing ? "💾 Simpan Perubahan" : "＋ Simpan Assignment"}
-      </button>
+      </SubmitButton>
     </form>
   );
 }
