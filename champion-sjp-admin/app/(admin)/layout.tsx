@@ -6,6 +6,8 @@ import { logoutAction } from "./actions";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSession();
   if (!user) redirect("/login");
+  if (user.role === "salesman") redirect("/sales");
+  if (user.role === "hos") redirect("/hos");
 
   return (
     <div className="flex min-h-screen">

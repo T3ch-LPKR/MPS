@@ -50,7 +50,7 @@ export default async function MasterPage({ searchParams }: {
       {tab === "assign" && (
         <div className="grid grid-cols-[1fr_1.7fr] gap-4 max-[1000px]:grid-cols-1">
           <div className="card p-5 self-start">
-            <AssignForm salesmen={salesmen} initial={initial} />
+            <AssignForm key={initial?.assign_id ?? "new"} salesmen={salesmen} initial={initial} />
           </div>
           <div className="card p-5">
             <div className="font-bold mb-3">Daftar Assignment</div>

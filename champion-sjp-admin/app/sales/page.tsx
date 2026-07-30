@@ -1,0 +1,104 @@
+import Link from "next/link";
+import { q } from "@/lib/db";
+import { getSession } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
+
+const HARI = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+export default async function SalesHome() {
+  const user = await getSession();
+  const emp = user?.emp_id || "";
+  const now = new Date();
+  const tgl = `${HARI[now.getDay()]}, ${now.getDate()} ${BULAN[now.getMonth()]} ${now.getFullYear()}`;
+
+  if (!emp) {
+    return <div className="p-4"><div className="card p-4 text-sm text-mut">Akun ini belum ditautkan ke salesman (emp_id). Minta Admin set di menu Kelola User.</div></div>;
+  }
+
+  const rows = await q<any>(`
+    SELECT s.sched_id, s.cust_code, c.cust_name, c.address, s.jam_target::text AS jam, s.status,
+           a.frekuensi,
+           (g.cust_code IS NOT NULL) AS has_geo,
+           ar.ar_outstanding,
+           (v.visit_id IS NOT NULL) AS visited
+    FROM sjp_schedule s
+    JOIN sjp_customer c ON c.cust_code = s.cust_code
+    LEFT JOIN sjp_assignment a ON a.cust_code=s.cust_code AND a.emp_id=s.emp_id
+    LEFT JOIN sjp_customer_geo g ON g.cust_code=s.cust_code
+    LEFT JOIN sjp_customer_ar ar ON ar.cust_code=s.cust_code
+    LEFT JOIN sjp_visit_log v ON v.sched_id = s.sched_id
+    WHERE s.emp_id = $1 AND s.tgl = CURRENT_DATE
+    ORDER BY s.jam_target NULLS LAST, c.cust_name`, [emp]);
+
+  const total = rows.length;
+  const done = rows.filter((r) => r.visited || r.status === "DONE").length;
+  const pending = rows.filter((r) => !(r.visited || r.status === "DONE"));
+  const finished = rows.filter((r) => r.visited || r.status === "DONE");
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
+  const FREK: any = { W: "Weekly", BW: "Bi-Weekly", M: "Monthly", C: "Custom" };
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="card p-4">
+        <div className="text-lg font-extrabold">Halo, {(user?.full_name || "Salesman").split(" ")[0]} 👋</div>
+        <div className="text-xs text-mut">{tgl}</div>
+        <div className="mt-3">
+          <div className="flex justify-between text-xs font-semibold mb-1"><span>Progress kunjungan</span><span>{done} / {total} selesai</span></div>
+          <div className="h-2 bg-line rounded"><div className="h-full bg-ok rounded" style={{ width: `${pct}%` }} /></div>
+        </div>
+        <div className="flex gap-2 mt-3">
+          <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold">{total}</div><div className="text-[11px] text-mut">Plan</div></div>
+          <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold text-ok">{done}</div><div className="text-[11px] text-mut">Selesai</div></div>
+          <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold text-warn">{total - done}</div><div className="text-[11px] text-mut">Belum</div></div>
+        </div>
+      </div>
+
+      <Link href="/sales/oos" className="block text-center border-2 border-dashed border-brand text-brand font-semibold rounded-xl py-2.5 text-sm">
+        ➕ Kunjungan Luar Jadwal (OOS)
+      </Link>
+
+      {total === 0 ? (
+        <div className="card p-4 text-sm text-mut text-center">Belum ada jadwal untuk hari ini. Hubungi Admin untuk generate jadwal, atau lakukan kunjungan luar jadwal.</div>
+      ) : null}
+
+      {pending.length ? <div className="text-[11px] uppercase tracking-wide text-mut font-bold px-1 pt-1">Belum dikunjungi ({pending.length})</div> : null}
+      {pending.map((r) => (
+        <Link key={r.sched_id} href={`/sales/kunjungan/${r.sched_id}`} className="card p-3 flex items-center gap-3 active:opacity-70">
+          <div className="w-11 h-11 rounded-xl bg-brand-soft text-brand grid place-items-center font-extrabold flex-shrink-0">
+            {(r.cust_name || "?").slice(0, 2).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-sm truncate">{r.cust_name}</div>
+            <div className="text-[11px] text-mut truncate">📍 {r.address || "-"}</div>
+            <div className="mt-1 flex gap-1 flex-wrap">
+              {r.frekuensi ? <span className="pill p-info">{FREK[r.frekuensi]}</span> : null}
+              {Number(r.ar_outstanding) > 0 ? <span className="pill p-bad">AR {rp(r.ar_outstanding)}</span> : null}
+              {!r.has_geo ? <span className="pill p-mut">tanpa titik GPS</span> : null}
+            </div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <div className="text-xs font-bold">{r.jam ? r.jam.slice(0, 5) : ""}</div>
+            <div className="text-2xl text-[#c7ccd4]">›</div>
+          </div>
+        </Link>
+      ))}
+
+      {finished.length ? <div className="text-[11px] uppercase tracking-wide text-mut font-bold px-1 pt-2">Sudah dikunjungi ({finished.length})</div> : null}
+      {finished.map((r) => (
+        <div key={r.sched_id} className="card p-3 flex items-center gap-3 opacity-70">
+          <div className="w-11 h-11 rounded-xl bg-[#e7f6ec] text-ok grid place-items-center font-extrabold flex-shrink-0">
+            {(r.cust_name || "?").slice(0, 2).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-sm truncate">{r.cust_name}</div>
+            <div className="text-[11px] text-ok">✓ Sudah check-in</div>
+          </div>
+          <span className="pill p-ok">Selesai</span>
+        </div>
+      ))}
+    </div>
+  );
+}

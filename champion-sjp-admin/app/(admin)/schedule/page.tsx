@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { q, q1 } from "@/lib/db";
-import { generateSchedule } from "./actions";
+import GenerateButton from "./GenerateButton";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,9 @@ function mondayOf(dateStr?: string) {
   d.setHours(0, 0, 0, 0);
   return d;
 }
-const ymd = (d: Date) => d.toISOString().slice(0, 10);
+const ymd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(d.getDate() + n); return x; };
 
 const STATUS: any = {
   PLANNED: { cls: "bg-brand-soft border-brand", label: "Terjadwal" },
@@ -38,8 +40,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: { w
   }
 
   const totalWeek = await q1<any>(`SELECT count(*) n FROM sjp_schedule WHERE tgl BETWEEN $1 AND $2`, [start, end]);
-  const prev = ymd(new Date(monday.getTime() - 7 * 86400000));
-  const next = ymd(new Date(monday.getTime() + 7 * 86400000));
+  const prev = ymd(addDays(monday, -7));
+  const next = ymd(addDays(monday, 7));
   const qs = (w: string, e: string) => `/schedule?week=${w}&emp=${e}`;
   const rangeLabel = `${days[0].getDate()} ${BULAN[days[0].getMonth()]} – ${days[5].getDate()} ${BULAN[days[5].getMonth()]} ${days[5].getFullYear()}`;
 
@@ -62,10 +64,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: { w
         <Link className="btn btn-sm" href={qs(ymd(mondayOf()), isAll ? "ALL" : emp)}>Minggu ini</Link>
         <Link className="btn btn-sm" href={qs(next, isAll ? "ALL" : emp)}>Berikutnya ›</Link>
       </div>
-      <form action={generateSchedule}>
-        <input type="hidden" name="week_start" value={start} />
-        <button className="btn btn-pri">⚙ Generate Jadwal Minggu Ini</button>
-      </form>
+      <GenerateButton weekStart={start} />
     </div>
   );
 

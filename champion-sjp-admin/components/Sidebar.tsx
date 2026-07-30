@@ -10,6 +10,7 @@ const NAV = [
   { href: "/lov", label: "LOV Catatan", icon: "✎" },
   { href: "/prospek", label: "Prospek", icon: "◎" },
   { href: "/users", label: "Kelola User", icon: "⚙" },
+  { href: "/pengaturan", label: "Pengaturan", icon: "🛠" },
 ];
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
