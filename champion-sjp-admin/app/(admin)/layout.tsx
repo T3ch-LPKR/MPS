@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import Sidebar from "@/components/Sidebar";
+import SessionKeeper from "@/components/SessionKeeper";
 import { logoutAction } from "./actions";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -11,6 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-screen">
+      <SessionKeeper idleMinutes={60} />
       <aside className="w-60 bg-[#141414] text-gray-200 flex-shrink-0 sticky top-0 h-screen flex flex-col">
         <div className="px-5 py-4 border-b border-[#262626] flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-white grid place-items-center shadow p-1">

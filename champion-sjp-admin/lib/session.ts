@@ -14,18 +14,25 @@ export type SessionUser = {
   emp_id: string | null;
 };
 
-export async function createSession(user: SessionUser) {
+// TTL default per role: admin/hos/superadmin = 60 menit (idle sliding),
+// salesman = 12 jam (lapangan, jangan putus di tengah kunjungan).
+export function ttlForRole(role: SessionUser["role"]): number {
+  return role === "salesman" ? 12 * 3600 : 60 * 60;
+}
+
+export async function createSession(user: SessionUser, ttlSec?: number) {
+  const ttl = ttlSec ?? ttlForRole(user.role);
   const token = await new SignJWT({ ...user })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("12h")
+    .setExpirationTime(`${ttl}s`)
     .sign(secret);
   cookies().set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 12,
+    maxAge: ttl,
   });
 }
 

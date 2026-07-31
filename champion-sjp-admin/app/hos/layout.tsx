@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { logoutAction } from "../(admin)/actions";
 import RefreshButton from "../sales/RefreshButton";
+import SessionKeeper from "@/components/SessionKeeper";
 
 export default async function HosLayout({ children }: { children: React.ReactNode }) {
   const user = await getSession();
@@ -12,6 +13,7 @@ export default async function HosLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-[#c9ccd2] flex justify-center">
+      <SessionKeeper idleMinutes={60} />
       <div className="w-full max-w-[460px] bg-[#eef0f3] min-h-screen flex flex-col relative">
         <div className="bg-brand text-white px-4 py-3 flex items-center gap-2 sticky top-0 z-10 shadow">
           <div className="w-9 h-9 rounded-full bg-white/20 grid place-items-center overflow-hidden">
