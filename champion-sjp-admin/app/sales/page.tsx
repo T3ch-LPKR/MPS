@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { q } from "@/lib/db";
+import { q, q1 } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import NewsModal from "@/components/NewsModal";
 
@@ -27,7 +27,16 @@ export default async function SalesHome() {
     return <div className="p-4"><div className="card p-4 text-sm text-mut">Akun ini belum ditautkan ke salesman (emp_id). Minta Admin set di menu Kelola User.</div></div>;
   }
 
-  const rows = await q<any>(`
+  // rentang bulan berjalan (local date) untuk kartu pencapaian
+  const y = now.getFullYear(), mo = now.getMonth();
+  const p2 = (n: number) => String(n).padStart(2, "0");
+  const first = `${y}-${p2(mo + 1)}-01`;
+  const last = `${y}-${p2(mo + 1)}-${p2(new Date(y, mo + 1, 0).getDate())}`;
+  const monthLabel = `${BULAN[mo]} ${y}`;
+
+  // jadwal hari ini + pencapaian bulan ini -> paralel (tak menambah latensi)
+  const [rows, ach] = await Promise.all([
+    q<any>(`
     SELECT s.sched_id, s.cust_code, c.cust_name, c.address, s.jam_target::text AS jam, s.status,
            a.frekuensi,
            (g.cust_code IS NOT NULL) AS has_geo,
@@ -40,7 +49,25 @@ export default async function SalesHome() {
     LEFT JOIN sjp_customer_ar ar ON ar.cust_code=s.cust_code
     LEFT JOIN sjp_visit_log v ON v.sched_id = s.sched_id
     WHERE s.emp_id = $1 AND s.tgl = CURRENT_DATE
-    ORDER BY s.jam_target NULLS LAST, c.cust_name`, [emp]);
+    ORDER BY s.jam_target NULLS LAST, c.cust_name`, [emp]),
+    q1<any>(`
+    SELECT
+      (SELECT count(*) FROM sjp_schedule  WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3) AS plan,
+      (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND sched_id IS NOT NULL) AS done,
+      (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3) AS visit,
+      (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND is_effective_call) AS eff,
+      (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND is_oos) AS oos,
+      (SELECT count(*) FROM sjp_visit_log v JOIN sjp_lov l ON l.lov_id=v.catatan_lov_id
+         WHERE v.emp_id=$1 AND v.tgl BETWEEN $2 AND $3 AND l.kode='LOV-07') AS ar_follow
+    `, [emp, first, last]),
+  ]);
+
+  const pctf = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
+  const mPlan = Number(ach?.plan || 0), mDone = Number(ach?.done || 0);
+  const mVisit = Number(ach?.visit || 0), mEff = Number(ach?.eff || 0);
+  const mOos = Number(ach?.oos || 0), mAr = Number(ach?.ar_follow || 0);
+  const mCompliance = pctf(mDone, mPlan);
+  const mEffPct = pctf(mEff, mVisit);
 
   const total = rows.length;
   const done = rows.filter((r) => r.visited || r.status === "DONE").length;
@@ -64,6 +91,26 @@ export default async function SalesHome() {
           <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold">{total}</div><div className="text-[11px] text-mut">Plan</div></div>
           <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold text-ok">{done}</div><div className="text-[11px] text-mut">Selesai</div></div>
           <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold text-warn">{total - done}</div><div className="text-[11px] text-mut">Belum</div></div>
+        </div>
+      </div>
+
+      {/* Pencapaian bulan ini (berbasis kunjungan) */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-bold">🏆 Pencapaian {monthLabel}</div>
+          {mOos > 0 ? <span className="pill p-info">+{mOos} luar jadwal</span> : null}
+        </div>
+        <div className="flex justify-between text-xs font-semibold mb-1">
+          <span>Compliance kunjungan</span><span>{mDone} / {mPlan} terjadwal</span>
+        </div>
+        <div className="h-2 bg-line rounded">
+          <div className={`h-full rounded ${mCompliance >= 80 ? "bg-ok" : mCompliance >= 50 ? "bg-warn" : "bg-bad"}`} style={{ width: `${mCompliance}%` }} />
+        </div>
+        <div className="flex gap-2 mt-3">
+          <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold">{mCompliance}%</div><div className="text-[11px] text-mut">Compliance</div></div>
+          <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold">{mVisit}</div><div className="text-[11px] text-mut">Kunjungan</div></div>
+          <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold text-ok">{mEffPct}%</div><div className="text-[11px] text-mut">Effective</div></div>
+          <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-xl font-extrabold text-brand">{mAr}</div><div className="text-[11px] text-mut">AR ditindak</div></div>
         </div>
       </div>
 
