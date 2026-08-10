@@ -26,3 +26,26 @@ body {
   .th { @apply text-left text-[11px] uppercase tracking-wide text-mut font-semibold px-3 py-2.5 border-b border-line whitespace-nowrap; }
   .td { @apply px-3 py-2.5 border-b border-line text-sm align-middle; }
 }
+
+/* Ikon Berita "hidup" saat ada berita belum dibaca — CSS ringan (bukan GIF).
+   Goyang seperti lonceng + warna cerah biar salesman tertarik membuka. */
+@keyframes newsWiggle {
+  0%, 55%, 100% { transform: rotate(0) scale(1); }
+  60% { transform: rotate(-14deg) scale(1.18); }
+  67% { transform: rotate(12deg) scale(1.18); }
+  74% { transform: rotate(-9deg) scale(1.12); }
+  81% { transform: rotate(6deg) scale(1.06); }
+  88% { transform: rotate(-3deg) scale(1.03); }
+}
+@keyframes newsHue {
+  0%, 100% { filter: hue-rotate(0deg) saturate(1.6) drop-shadow(0 0 3px rgba(216,31,38,.6)); }
+  50%      { filter: hue-rotate(35deg) saturate(2)  drop-shadow(0 0 5px rgba(245,158,11,.8)); }
+}
+.news-live {
+  display: inline-block;
+  transform-origin: 50% 10%;
+  animation: newsWiggle 2s ease-in-out infinite, newsHue 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-live { animation: none; filter: saturate(1.6); }
+}
