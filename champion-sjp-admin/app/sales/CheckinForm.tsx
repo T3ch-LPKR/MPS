@@ -4,14 +4,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { submitCheckin } from "./actions";
+import { haversineMeters, GEOFENCE_M } from "@/lib/geo";
 
 type Lov = { lov_id: number; kode: string; teks: string };
-
-function hav(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371000, r = (d: number) => (d * Math.PI) / 180;
-  const a = Math.sin(r(lat2 - lat1) / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(r(lng2 - lng1) / 2) ** 2;
-  return Math.round(2 * R * Math.asin(Math.sqrt(a)));
-}
 
 function SubmitBtn({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
@@ -47,9 +42,10 @@ export default function CheckinForm({
   }, []);
 
   const hasCustGeo = custLat != null && custLng != null;
-  const dist = pos && hasCustGeo ? hav(pos.lat, pos.lng, Number(custLat), Number(custLng)) : null;
-  const inRadius = dist == null ? true : dist <= 50; // tanpa geo -> titik pertama (valid)
-  const gpsReady = !!pos && inRadius;
+  const dist = pos && hasCustGeo ? haversineMeters(pos.lat, pos.lng, Number(custLat), Number(custLng)) : null;
+  const inRadius = dist == null ? true : dist <= GEOFENCE_M; // tanpa geo -> titik pertama
+  // Non-blocking: cukup ada posisi GPS. Di luar radius tetap boleh submit (masuk approval admin).
+  const gpsReady = !!pos;
 
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -80,10 +76,10 @@ export default function CheckinForm({
       <input type="hidden" name="photo" value={photo} />
       <input type="hidden" name="catatan_lov_id" value={lov} />
 
-      {/* GPS status */}
-      <div className={`rounded-xl p-3 text-white ${gpsReady ? "bg-ok" : "bg-bad"}`}>
+      {/* GPS status (non-blocking: di luar radius = kuning, tetap bisa submit) */}
+      <div className={`rounded-xl p-3 text-white ${!pos ? "bg-bad" : (!hasCustGeo || inRadius) ? "bg-ok" : "bg-warn"}`}>
         <div className="flex items-center gap-3">
-          <div className="text-2xl">{gpsReady ? "📍" : "⛔"}</div>
+          <div className="text-2xl">{!pos ? "⛔" : (!hasCustGeo || inRadius) ? "📍" : "⚠️"}</div>
           <div className="flex-1">
             {!pos ? (
               <div className="font-bold text-sm">{gpsErr || "Mengambil lokasi…"}</div>
@@ -92,10 +88,10 @@ export default function CheckinForm({
                 <div className="text-[11px] opacity-90">Customer belum punya titik. Lokasi ini akan jadi patokan.</div></>
             ) : inRadius ? (
               <><div className="font-bold text-sm">Dalam radius kunjungan</div>
-                <div className="text-[11px] opacity-90">Jarak {dist} m (≤ 50 m) · akurasi ±{pos.acc} m</div></>
+                <div className="text-[11px] opacity-90">Jarak {dist} m (≤ {GEOFENCE_M} m) · akurasi ±{pos.acc} m</div></>
             ) : (
-              <><div className="font-bold text-sm">Di luar radius (maks 50 m)</div>
-                <div className="text-[11px] opacity-90">Jarak {dist} m · mendekat ke lokasi customer</div></>
+              <><div className="font-bold text-sm">Di luar radius {GEOFENCE_M} m (jarak {dist} m)</div>
+                <div className="text-[11px] opacity-90">Kunjungan tetap tercatat. Lokasi baru dikirim ke Admin untuk verifikasi.</div></>
             )}
           </div>
         </div>

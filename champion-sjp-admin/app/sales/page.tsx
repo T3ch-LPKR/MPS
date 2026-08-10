@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { q } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import NewsModal from "@/components/NewsModal";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,15 @@ export default async function SalesHome() {
   const emp = user?.emp_id || "";
   const now = new Date();
   const tgl = `${HARI[now.getDay()]}, ${now.getDate()} ${BULAN[now.getMonth()]} ${now.getFullYear()}`;
+
+  // Berita aktif utk salesman yang belum dibaca -> popup
+  const news = user?.user_id ? await q<any>(`
+    SELECT news_id, title, body, (photo IS NOT NULL) AS has_photo
+      FROM sjp_news n
+     WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
+       AND 'salesman' = ANY(target_roles)
+       AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)
+     ORDER BY created_at DESC`, [user.user_id]) : [];
 
   if (!emp) {
     return <div className="p-4"><div className="card p-4 text-sm text-mut">Akun ini belum ditautkan ke salesman (emp_id). Minta Admin set di menu Kelola User.</div></div>;
@@ -42,6 +52,7 @@ export default async function SalesHome() {
 
   return (
     <div className="p-4 space-y-3">
+      <NewsModal items={news} />
       <div className="card p-4">
         <div className="text-lg font-extrabold">Halo, {(user?.full_name || "Salesman").split(" ")[0]} 👋</div>
         <div className="text-xs text-mut">{tgl}</div>

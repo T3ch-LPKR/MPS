@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { q, q1 } from "@/lib/db";
+import { getSession } from "@/lib/session";
+import NewsModal from "@/components/NewsModal";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,15 @@ export default async function HosOverview({ searchParams }: { searchParams: { d?
   const d = searchParams.d || ymdToday();
   const dt = new Date(d + "T00:00:00");
   const label = `${HARI[dt.getDay()]}, ${dt.getDate()} ${BULAN[dt.getMonth()]} ${dt.getFullYear()}`;
+
+  const user = await getSession();
+  const news = user?.user_id ? await q<any>(`
+    SELECT news_id, title, body, (photo IS NOT NULL) AS has_photo
+      FROM sjp_news n
+     WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
+       AND 'hos' = ANY(target_roles)
+       AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)
+     ORDER BY created_at DESC`, [user.user_id]) : [];
 
   const k = await q1<any>(`
     SELECT
@@ -60,6 +71,7 @@ export default async function HosOverview({ searchParams }: { searchParams: { d?
 
   return (
     <div className="p-4 space-y-3">
+      <NewsModal items={news} />
       {/* day picker */}
       <div className="flex items-center gap-2">
         <Link href={dayLink(-1)} className="btn btn-sm">‹</Link>

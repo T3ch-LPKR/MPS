@@ -36,6 +36,7 @@ export default async function HosLayout({ children }: { children: React.ReactNod
           <Link href="/hos/peta" className="flex-1 text-center py-2 text-[11px] font-semibold text-mut"><div className="text-lg leading-none">🗺️</div>Peta</Link>
           <Link href="/hos/feed" className="flex-1 text-center py-2 text-[11px] font-semibold text-mut"><div className="text-lg leading-none">📷</div>Feed</Link>
           <Link href="/hos/recap" className="flex-1 text-center py-2 text-[11px] font-semibold text-mut"><div className="text-lg leading-none">📈</div>Recap</Link>
+          <Link href="/hos/berita" className="flex-1 text-center py-2 text-[11px] font-semibold text-mut"><div className="text-lg leading-none">📰</div>Berita</Link>
         </nav>
       </div>
     </div>

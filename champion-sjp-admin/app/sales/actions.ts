@@ -22,7 +22,8 @@ function decodePhoto(dataUrl: string): Buffer | null {
 /**
  * Submit check-in (kunjungan terjadwal maupun OOS).
  * - Customer tanpa geo: check-in pertama jadi PATOKAN (disimpan ke sjp_customer_geo).
- * - Customer punya geo: validasi radius 50 m di server.
+ * - Customer punya geo: radius 50 m NON-BLOCKING. Di luar radius tetap tercatat
+ *   (gps_valid=false) + usulan GPS baru masuk antrean approval admin (sjp_geo_approval).
  */
 export async function submitCheckin(_prev: any, formData: FormData) {
   const s = await getSession();
@@ -65,16 +66,19 @@ export async function submitCheckin(_prev: any, formData: FormData) {
 
   if (!cust_code && !prospek_id) return { error: "Customer belum dipilih." };
 
-  // Geofence utk customer terdaftar
+  // Geofence utk customer terdaftar (NON-BLOCKING).
+  // >50 m TIDAK memblok: kunjungan tetap tercatat, GPS baru diusulkan ke admin (approval).
   let gps_distance: number | null = null;
   let gps_valid = true;
+  let geoProposal: { old_lat: number; old_lng: number } | null = null;
   if (cust_code) {
     const geo = await q1<{ lat: number; lng: number }>(
       `SELECT lat, lng FROM sjp_customer_geo WHERE cust_code=$1`, [cust_code]);
     if (geo && geo.lat != null && geo.lng != null) {
       gps_distance = haversineMeters(lat, lng, Number(geo.lat), Number(geo.lng));
       gps_valid = gps_distance <= GEOFENCE_M;
-      if (!gps_valid) return { error: `Di luar radius ${GEOFENCE_M} m (jarak ${gps_distance} m). Mendekat ke lokasi customer.` };
+      // di luar radius -> siapkan usulan GPS baru (bukan blok)
+      if (!gps_valid) geoProposal = { old_lat: Number(geo.lat), old_lng: Number(geo.lng) };
     } else {
       // PATOKAN: check-in pertama -> simpan titik ini sebagai lokasi customer
       await q(
@@ -90,14 +94,30 @@ export async function submitCheckin(_prev: any, formData: FormData) {
   const lov = await q1<{ kode: string }>(`SELECT kode FROM sjp_lov WHERE lov_id=$1`, [catatan_lov_id]);
   const effective = lov?.kode === "LOV-02";
 
-  await q(
+  const ins = await q1<{ visit_id: number }>(
     `INSERT INTO sjp_visit_log
        (tgl, emp_id, cust_code, prospek_id, sched_id, is_oos, oos_lov_id, checkin_dt,
         lat, lng, gps_accuracy, gps_distance_m, gps_valid, photo, catatan_lov_id, free_text, is_effective_call)
-     VALUES (CURRENT_DATE,$1,$2,$3,$4,$5,$6, now(), $7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+     VALUES (CURRENT_DATE,$1,$2,$3,$4,$5,$6, now(), $7,$8,$9,$10,$11,$12,$13,$14,$15)
+     RETURNING visit_id`,
     [emp, cust_code, prospek_id, sched_id, is_oos, oos_lov_id,
      lat, lng, accuracy, gps_distance, gps_valid, photoBuf, catatan_lov_id, free_text, effective]
   );
+
+  // Usulan GPS baru -> antrean approval admin (1 PENDING per customer, terbaru menimpa)
+  if (geoProposal && cust_code) {
+    await q(
+      `INSERT INTO sjp_geo_approval
+         (cust_code, emp_id, visit_id, old_lat, old_lng, new_lat, new_lng, distance_m, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING')
+       ON CONFLICT (cust_code) WHERE status='PENDING'
+       DO UPDATE SET emp_id=EXCLUDED.emp_id, visit_id=EXCLUDED.visit_id,
+         old_lat=EXCLUDED.old_lat, old_lng=EXCLUDED.old_lng,
+         new_lat=EXCLUDED.new_lat, new_lng=EXCLUDED.new_lng,
+         distance_m=EXCLUDED.distance_m, created_at=now()`,
+      [cust_code, emp, ins?.visit_id ?? null, geoProposal.old_lat, geoProposal.old_lng, lat, lng, gps_distance]
+    );
+  }
 
   if (sched_id) await q(`UPDATE sjp_schedule SET status='DONE' WHERE sched_id=$1`, [sched_id]);
 
