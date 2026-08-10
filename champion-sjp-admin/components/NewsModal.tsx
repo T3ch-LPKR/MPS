@@ -1,30 +1,31 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type News = { news_id: number; title: string; body: string | null; has_photo: boolean };
 
-// Popup berita saat buka app. Tampil 1-per-1; "Mengerti"/"Berikutnya" -> tandai dibaca.
+// Popup berita saat buka app. Begitu TAMPIL -> semua berita ditandai dibaca (sekali lihat, tak muncul lagi).
 export default function NewsModal({ items }: { items: News[] }) {
   const [idx, setIdx] = useState(0);
   const [closed, setClosed] = useState(false);
-  const [busy, setBusy] = useState(false);
+
+  // tandai SEMUA berita yang tampil sebagai dibaca (1 batch) begitu popup muncul
+  useEffect(() => {
+    if (!items.length) return;
+    fetch("/api/news/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ news_ids: items.map((i) => i.news_id) }),
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (closed || items.length === 0 || idx >= items.length) return null;
   const n = items[idx];
   const last = idx + 1 >= items.length;
 
-  async function next() {
-    setBusy(true);
-    try {
-      await fetch("/api/news/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ news_id: n.news_id }),
-      });
-    } catch { /* biar tetap lanjut walau gagal tandai */ }
-    setBusy(false);
+  function next() {
     if (last) setClosed(true); else setIdx(idx + 1);
   }
 
@@ -41,9 +42,8 @@ export default function NewsModal({ items }: { items: News[] }) {
           </div>
           <div className="font-extrabold text-lg mb-1">{n.title}</div>
           {n.body ? <div className="text-sm text-ink whitespace-pre-wrap">{n.body}</div> : null}
-          <button onClick={next} disabled={busy} aria-busy={busy}
-            className="btn btn-pri w-full justify-center mt-4 py-2.5">
-            {busy ? "…" : last ? "Mengerti" : "Berikutnya"}
+          <button onClick={next} className="btn btn-pri w-full justify-center mt-4 py-2.5">
+            {last ? "Mengerti" : "Berikutnya"}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { q } from "@/lib/db";
+import { getSession } from "@/lib/session";
 import NewsViewer, { NewsItem } from "@/components/NewsViewer";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,13 @@ export default async function SalesBerita() {
      WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
        AND 'salesman' = ANY(target_roles)
      ORDER BY created_at DESC`);
+
+  // buka menu Berita = tandai semua dibaca (badge berkurang)
+  const user = await getSession();
+  if (user?.user_id && rows.length)
+    await q(`INSERT INTO sjp_news_read (news_id, user_id)
+             SELECT unnest($1::bigint[]), $2 ON CONFLICT DO NOTHING`,
+      [rows.map((r: any) => r.news_id), user.user_id]);
   const fmt = (d: string) => new Date(d).toLocaleDateString("id", { day: "2-digit", month: "short" });
   const items: NewsItem[] = rows.map((n: any) => ({
     news_id: n.news_id, title: n.title, body: n.body, has_photo: n.has_photo,
