@@ -1,13 +1,23 @@
-import { q } from "@/lib/db";
+import Link from "next/link";
+import { q, q1 } from "@/lib/db";
 import { toggleNews, deleteNews } from "./actions";
-import NewsForm from "./NewsForm";
+import NewsForm, { NewsInitial } from "./NewsForm";
 import SubmitButton from "@/components/SubmitButton";
 
 export const dynamic = "force-dynamic";
 
 const ROLE_LABEL: Record<string, string> = { salesman: "Salesman", hos: "HOS", collector: "Collector" };
 
-export default async function BeritaPage() {
+export default async function BeritaPage({ searchParams }: { searchParams: { edit?: string } }) {
+  const editId = Number(searchParams.edit || 0) || 0;
+  const initial: NewsInitial | undefined = editId
+    ? (await q1<any>(`
+        SELECT news_id, title, body, target_roles, (photo IS NOT NULL) AS has_photo,
+               to_char(start_date,'YYYY-MM-DD') AS start_date,
+               to_char(end_date,'YYYY-MM-DD') AS end_date
+          FROM sjp_news WHERE news_id=$1`, [editId])) || undefined
+    : undefined;
+
   const rows = await q<any>(`
     SELECT news_id, title, start_date, end_date, target_roles, is_active,
            (photo IS NOT NULL) AS has_photo,
@@ -25,8 +35,8 @@ export default async function BeritaPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 items-start">
         <div className="card p-5">
-          <div className="font-bold mb-3">Berita Baru</div>
-          <NewsForm />
+          <div className="font-bold mb-3">{initial ? "Edit Berita" : "Berita Baru"}</div>
+          <NewsForm key={initial?.news_id ?? "new"} initial={initial} />
         </div>
 
         <div className="card p-5">
@@ -54,7 +64,8 @@ export default async function BeritaPage() {
                     </td>
                     <td className="td text-xs">{r.dibaca}</td>
                     <td className="td whitespace-nowrap">
-                      <form action={toggleNews} className="inline">
+                      <Link href={`/berita?edit=${r.news_id}`} className="btn btn-sm">Edit</Link>
+                      <form action={toggleNews} className="inline ml-1">
                         <input type="hidden" name="news_id" value={r.news_id} />
                         <SubmitButton className="btn btn-sm" pendingText="…">{r.is_active ? "Nonaktifkan" : "Aktifkan"}</SubmitButton>
                       </form>

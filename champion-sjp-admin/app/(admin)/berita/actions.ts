@@ -35,6 +35,36 @@ export async function createNews(_prev: any, formData: FormData) {
   return { ok: true };
 }
 
+export async function updateNews(_prev: any, formData: FormData) {
+  const id = Number(formData.get("news_id"));
+  if (!id) return { error: "Berita tidak valid." };
+  const title = String(formData.get("title") || "").trim();
+  const body = String(formData.get("body") || "").trim() || null;
+  const start_date = String(formData.get("start_date") || "").trim();
+  const end_date = String(formData.get("end_date") || "").trim();
+  const roles = formData.getAll("roles").map(String).filter((r) => ROLES.includes(r));
+  const newPhoto = decodePhoto(String(formData.get("photo") || ""));
+  const removePhoto = formData.get("remove_photo") === "1";
+
+  if (!title) return { error: "Judul wajib diisi." };
+  if (!start_date || !end_date) return { error: "Periode (mulai & selesai) wajib diisi." };
+  if (end_date < start_date) return { error: "Tanggal selesai tidak boleh sebelum mulai." };
+  if (roles.length === 0) return { error: "Pilih minimal satu target (Salesman/HOS/Collector)." };
+
+  if (newPhoto) {
+    await q(`UPDATE sjp_news SET title=$2, body=$3, start_date=$4, end_date=$5, target_roles=$6, photo=$7 WHERE news_id=$1`,
+      [id, title, body, start_date, end_date, roles, newPhoto]);
+  } else if (removePhoto) {
+    await q(`UPDATE sjp_news SET title=$2, body=$3, start_date=$4, end_date=$5, target_roles=$6, photo=NULL WHERE news_id=$1`,
+      [id, title, body, start_date, end_date, roles]);
+  } else {
+    await q(`UPDATE sjp_news SET title=$2, body=$3, start_date=$4, end_date=$5, target_roles=$6 WHERE news_id=$1`,
+      [id, title, body, start_date, end_date, roles]);
+  }
+  revalidatePath("/berita");
+  return { ok: true };
+}
+
 export async function toggleNews(formData: FormData) {
   const id = Number(formData.get("news_id"));
   if (!id) return;
