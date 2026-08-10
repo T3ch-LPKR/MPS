@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
+import { q1 } from "@/lib/db";
 import { logoutAction } from "../(admin)/actions";
 import RefreshButton from "./RefreshButton";
 
@@ -9,6 +10,14 @@ export default async function SalesLayout({ children }: { children: React.ReactN
   if (!user) redirect("/login");
   // salesman utama; admin/superadmin boleh preview
   if (!["salesman", "admin", "superadmin"].includes(user.role)) redirect("/");
+
+  // jumlah berita salesman yang belum dibaca -> badge statis di ikon Berita (query kecil)
+  const unread = user.user_id ? Number((await q1<any>(
+    `SELECT count(*) n FROM sjp_news n
+      WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
+        AND 'salesman' = ANY(target_roles)
+        AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)`,
+    [user.user_id]))?.n || 0) : 0;
 
   return (
     <div className="min-h-screen bg-[#c9ccd2] flex justify-center">
@@ -42,8 +51,13 @@ export default async function SalesLayout({ children }: { children: React.ReactN
           <Link href="/sales/riwayat" className="flex-1 text-center py-2 text-[11px] font-semibold text-mut">
             <div className="text-lg leading-none">🕘</div>Riwayat
           </Link>
-          <Link href="/sales/berita" className="flex-1 py-2 text-[11px] font-semibold text-mut flex flex-col items-center">
-            <span className="text-lg leading-none">📣</span>
+          <Link href="/sales/berita" className={`flex-1 py-2 text-[11px] font-semibold flex flex-col items-center ${unread ? "text-brand" : "text-mut"}`}>
+            <span className="relative inline-block leading-none">
+              <span className="text-lg leading-none">📣</span>
+              {unread ? (
+                <span className="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 bg-brand text-white text-[9px] font-bold leading-[15px] rounded-full text-center">{unread > 9 ? "9+" : unread}</span>
+              ) : null}
+            </span>
             <span>Berita</span>
           </Link>
         </nav>

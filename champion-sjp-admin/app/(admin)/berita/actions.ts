@@ -79,3 +79,11 @@ export async function deleteNews(formData: FormData) {
   await q(`DELETE FROM sjp_news WHERE news_id=$1`, [id]);
   revalidatePath("/berita");
 }
+
+// Reset "dibaca" 1 berita -> semua user jadi unread lagi (popup + badge muncul lagi)
+export async function resetNewsRead(formData: FormData) {
+  const id = Number(formData.get("news_id"));
+  if (!id) return;
+  await q(`DELETE FROM sjp_news_read WHERE news_id=$1`, [id]);
+  revalidatePath("/berita");
+}

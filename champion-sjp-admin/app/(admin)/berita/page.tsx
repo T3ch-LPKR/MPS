@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { q, q1 } from "@/lib/db";
-import { toggleNews, deleteNews } from "./actions";
+import { toggleNews, deleteNews, resetNewsRead } from "./actions";
 import NewsForm, { NewsInitial } from "./NewsForm";
 import SubmitButton from "@/components/SubmitButton";
 
@@ -65,6 +65,12 @@ export default async function BeritaPage({ searchParams }: { searchParams: { edi
                     <td className="td text-xs">{r.dibaca}</td>
                     <td className="td whitespace-nowrap">
                       <Link href={`/berita?edit=${r.news_id}`} className="btn btn-sm">Edit</Link>
+                      {Number(r.dibaca) > 0 ? (
+                        <form action={resetNewsRead} className="inline ml-1">
+                          <input type="hidden" name="news_id" value={r.news_id} />
+                          <SubmitButton className="btn btn-sm" pendingText="…">Reset Dibaca</SubmitButton>
+                        </form>
+                      ) : null}
                       <form action={toggleNews} className="inline ml-1">
                         <input type="hidden" name="news_id" value={r.news_id} />
                         <SubmitButton className="btn btn-sm" pendingText="…">{r.is_active ? "Nonaktifkan" : "Aktifkan"}</SubmitButton>
