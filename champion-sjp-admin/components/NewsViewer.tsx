@@ -1,7 +1,9 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { markNewsRead } from "@/app/newsRead";
 
 export type NewsItem = {
   news_id: number;
@@ -12,8 +14,16 @@ export type NewsItem = {
 };
 
 // Daftar berita (arsip) — kartu bisa diklik untuk lihat full-screen.
+// Buka menu = tandai semua dibaca (server action + revalidate) -> badge unread berkurang.
 export default function NewsViewer({ items }: { items: NewsItem[] }) {
+  const router = useRouter();
   const [sel, setSel] = useState<NewsItem | null>(null);
+
+  useEffect(() => {
+    if (!items.length) return;
+    markNewsRead(items.map((i) => i.news_id)).then(() => router.refresh()).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (items.length === 0)
     return <div className="card p-4 text-sm text-mut text-center">Belum ada berita aktif.</div>;

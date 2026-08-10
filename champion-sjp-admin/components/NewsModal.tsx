@@ -2,22 +2,21 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { markNewsRead } from "@/app/newsRead";
 
 type News = { news_id: number; title: string; body: string | null; has_photo: boolean };
 
-// Popup berita saat buka app. Begitu TAMPIL -> semua berita ditandai dibaca (sekali lihat, tak muncul lagi).
+// Popup berita saat buka app. Begitu TAMPIL -> semua berita ditandai dibaca (server action +
+// revalidate cache) sehingga popup tak muncul lagi & badge unread berkurang.
 export default function NewsModal({ items }: { items: News[] }) {
+  const router = useRouter();
   const [idx, setIdx] = useState(0);
   const [closed, setClosed] = useState(false);
 
-  // tandai SEMUA berita yang tampil sebagai dibaca (1 batch) begitu popup muncul
   useEffect(() => {
     if (!items.length) return;
-    fetch("/api/news/read", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ news_ids: items.map((i) => i.news_id) }),
-    }).catch(() => {});
+    markNewsRead(items.map((i) => i.news_id)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -26,7 +25,7 @@ export default function NewsModal({ items }: { items: News[] }) {
   const last = idx + 1 >= items.length;
 
   function next() {
-    if (last) setClosed(true); else setIdx(idx + 1);
+    if (last) { setClosed(true); router.refresh(); } else setIdx(idx + 1);
   }
 
   return (
