@@ -29,10 +29,10 @@ export default function NewsModal({ items }: { items: News[] }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-[420px] max-h-[85vh] overflow-auto shadow-xl">
+    <div className="fixed inset-0 z-[100] bg-black/60 overflow-y-auto flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-[400px] my-auto shadow-xl overflow-hidden">
         {n.has_photo ? (
-          <img src={`/api/news-photo/${n.news_id}`} alt="" className="w-full max-h-56 object-cover rounded-t-2xl" />
+          <img src={`/api/news-photo/${n.news_id}`} alt="" className="w-full max-h-60 object-contain bg-[#f2f2f2]" />
         ) : null}
         <div className="p-4">
           <div className="flex items-center justify-between mb-1">
