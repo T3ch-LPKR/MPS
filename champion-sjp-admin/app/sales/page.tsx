@@ -14,14 +14,19 @@ export default async function SalesHome() {
   const now = new Date();
   const tgl = `${HARI[now.getDay()]}, ${now.getDate()} ${BULAN[now.getMonth()]} ${now.getFullYear()}`;
 
-  // Berita aktif utk salesman yang belum dibaca -> popup
-  const news = user?.user_id ? await q<any>(`
-    SELECT news_id, title, body, (photo IS NOT NULL) AS has_photo
-      FROM sjp_news n
-     WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
-       AND 'salesman' = ANY(target_roles)
-       AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)
-     ORDER BY created_at DESC`, [user.user_id]) : [];
+  // Berita aktif utk salesman yang belum dibaca -> popup (non-fatal: jangan 500-kan halaman)
+  let news: any[] = [];
+  if (user?.user_id) {
+    try {
+      news = await q<any>(`
+        SELECT news_id, title, body, (photo IS NOT NULL) AS has_photo
+          FROM sjp_news n
+         WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
+           AND 'salesman' = ANY(target_roles)
+           AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)
+         ORDER BY created_at DESC`, [user.user_id]);
+    } catch { news = []; }
+  }
 
   if (!emp) {
     return <div className="p-4"><div className="card p-4 text-sm text-mut">Akun ini belum ditautkan ke salesman (emp_id). Minta Admin set di menu Kelola User.</div></div>;
@@ -34,9 +39,10 @@ export default async function SalesHome() {
   const last = `${y}-${p2(mo + 1)}-${p2(new Date(y, mo + 1, 0).getDate())}`;
   const monthLabel = `${BULAN[mo]} ${y}`;
 
-  // jadwal hari ini + pencapaian bulan ini -> paralel (tak menambah latensi)
-  const [rows, ach] = await Promise.all([
-    q<any>(`
+  // jadwal hari ini (inti) — sekuensial (kurangi koneksi serentak di serverless)
+  let rows: any[] = [];
+  try {
+    rows = await q<any>(`
     SELECT s.sched_id, s.cust_code, c.cust_name, c.address, s.jam_target::text AS jam, s.status,
            a.frekuensi,
            (g.cust_code IS NOT NULL) AS has_geo,
@@ -49,8 +55,15 @@ export default async function SalesHome() {
     LEFT JOIN sjp_customer_ar ar ON ar.cust_code=s.cust_code
     LEFT JOIN sjp_visit_log v ON v.sched_id = s.sched_id
     WHERE s.emp_id = $1 AND s.tgl = CURRENT_DATE
-    ORDER BY s.jam_target NULLS LAST, c.cust_name`, [emp]),
-    q1<any>(`
+    ORDER BY s.jam_target NULLS LAST, c.cust_name`, [emp]);
+  } catch {
+    return <div className="p-4"><div className="card p-4 text-sm text-mut">Gagal memuat data. Coba tarik untuk segarkan atau buka lagi.</div></div>;
+  }
+
+  // pencapaian bulan ini — non-fatal
+  let ach: any = null;
+  try {
+    ach = await q1<any>(`
     SELECT
       (SELECT count(*) FROM sjp_schedule  WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3) AS plan,
       (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND sched_id IS NOT NULL) AS done,
@@ -59,8 +72,8 @@ export default async function SalesHome() {
       (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND is_oos) AS oos,
       (SELECT count(*) FROM sjp_visit_log v JOIN sjp_lov l ON l.lov_id=v.catatan_lov_id
          WHERE v.emp_id=$1 AND v.tgl BETWEEN $2 AND $3 AND l.kode='LOV-07') AS ar_follow
-    `, [emp, first, last]),
-  ]);
+    `, [emp, first, last]);
+  } catch { ach = null; }
 
   const pctf = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
   const mPlan = Number(ach?.plan || 0), mDone = Number(ach?.done || 0);

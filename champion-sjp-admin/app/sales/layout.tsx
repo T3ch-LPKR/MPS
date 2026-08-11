@@ -11,13 +11,18 @@ export default async function SalesLayout({ children }: { children: React.ReactN
   // salesman utama; admin/superadmin boleh preview
   if (!["salesman", "admin", "superadmin"].includes(user.role)) redirect("/");
 
-  // jumlah berita salesman yang belum dibaca -> badge statis di ikon Berita (query kecil)
-  const unread = user.user_id ? Number((await q1<any>(
-    `SELECT count(*) n FROM sjp_news n
-      WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
-        AND 'salesman' = ANY(target_roles)
-        AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)`,
-    [user.user_id]))?.n || 0) : 0;
+  // jumlah berita salesman yang belum dibaca -> badge statis (non-fatal)
+  let unread = 0;
+  if (user.user_id) {
+    try {
+      unread = Number((await q1<any>(
+        `SELECT count(*) n FROM sjp_news n
+          WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
+            AND 'salesman' = ANY(target_roles)
+            AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)`,
+        [user.user_id]))?.n || 0);
+    } catch { unread = 0; }
+  }
 
   return (
     <div className="min-h-screen bg-[#c9ccd2] flex justify-center">

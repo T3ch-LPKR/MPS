@@ -20,13 +20,18 @@ export default async function HosOverview({ searchParams }: { searchParams: { d?
   const label = `${HARI[dt.getDay()]}, ${dt.getDate()} ${BULAN[dt.getMonth()]} ${dt.getFullYear()}`;
 
   const user = await getSession();
-  const news = user?.user_id ? await q<any>(`
-    SELECT news_id, title, body, (photo IS NOT NULL) AS has_photo
-      FROM sjp_news n
-     WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
-       AND 'hos' = ANY(target_roles)
-       AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)
-     ORDER BY created_at DESC`, [user.user_id]) : [];
+  let news: any[] = [];
+  if (user?.user_id) {
+    try {
+      news = await q<any>(`
+        SELECT news_id, title, body, (photo IS NOT NULL) AS has_photo
+          FROM sjp_news n
+         WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
+           AND 'hos' = ANY(target_roles)
+           AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)
+         ORDER BY created_at DESC`, [user.user_id]);
+    } catch { news = []; }
+  }
 
   const k = await q1<any>(`
     SELECT

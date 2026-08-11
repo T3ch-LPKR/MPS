@@ -18,10 +18,13 @@ function makePool() {
     ssl: process.env.PGSSL ? { rejectUnauthorized: false } : undefined,
     max: 5,
     idleTimeoutMillis: 30000,
+    // search_path via STARTUP OPTION -> terpasang di backend saat koneksi dibuka.
+    // Andal di Transaction Pooler Supabase (SET session tidak selalu ikut per-transaksi).
+    options: `-c search_path="${SCHEMA}",public,extensions`,
   });
-  // set search_path tiap koneksi baru (extensions = tempat pgcrypto crypt/gen_salt di Supabase)
+  // cadangan (bila 'options' tak diteruskan): set lagi tiap koneksi baru
   pool.on("connect", (client) => {
-    client.query(`SET search_path TO "${SCHEMA}", public, extensions`);
+    client.query(`SET search_path TO "${SCHEMA}", public, extensions`).catch(() => {});
   });
   return pool;
 }

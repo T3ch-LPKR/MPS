@@ -11,10 +11,12 @@ export async function markNewsRead(newsIds: number[]) {
   if (!s?.user_id) return;
   const ids = (newsIds || []).map(Number).filter((n) => Number.isFinite(n) && n > 0);
   if (!ids.length) return;
-  await q(
-    `INSERT INTO sjp_news_read (news_id, user_id)
-     SELECT unnest($1::bigint[]), $2 ON CONFLICT DO NOTHING`,
-    [ids, s.user_id]);
+  try {
+    await q(
+      `INSERT INTO sjp_news_read (news_id, user_id)
+       SELECT unnest($1::bigint[]), $2 ON CONFLICT DO NOTHING`,
+      [ids, s.user_id]);
+  } catch { return; }
   revalidatePath("/sales", "layout");
   revalidatePath("/hos", "layout");
 }
