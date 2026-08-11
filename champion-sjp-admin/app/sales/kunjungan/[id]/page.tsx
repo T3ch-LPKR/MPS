@@ -9,6 +9,26 @@ export const dynamic = "force-dynamic";
 
 const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
 
+// Ikon pin Google Maps (inline SVG multi-warna Google) — tanpa aset eksternal.
+function GmapIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path fill="#4285F4" d="M12 2c-3.9 0-7 3.1-7 7 0 1.4.4 2.6 1 3.7L12 22l6-9.3c.6-1.1 1-2.3 1-3.7 0-3.9-3.1-7-7-7z" />
+      <path fill="#34A853" d="M6 12.7 12 22l3.2-5c-.9.6-2 1-3.2 1-2.6 0-4.8-1.7-5.6-4a7 7 0 0 0 .6.7z" opacity=".85" />
+      <path fill="#FBBC04" d="M5 8.6C5.5 6 7.5 4 10 3.3 8 4.2 6.6 6 6.1 8.2c-.4 1.6-.2 2.9.3 4.1a7 7 0 0 1-1.4-3.7z" opacity=".9" />
+      <path fill="#EA4335" d="M12 2c1.9 0 3.6.8 4.9 2C15.7 2.7 14 2 12 2 9.5 2.7 7.5 4.7 7 7.3 7.8 4.5 9.7 2.6 12 2z" opacity=".9" />
+      <circle cx="12" cy="9" r="2.5" fill="#fff" />
+    </svg>
+  );
+}
+
+function gmapsUrl(lat: any, lng: any, address?: string | null, name?: string) {
+  if (lat != null && lng != null)
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  const q = encodeURIComponent(address || name || "");
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
+
 export default async function KunjunganDetail({ params }: { params: { id: string } }) {
   const user = await getSession();
   const emp = user?.emp_id || "";
@@ -35,6 +55,13 @@ export default async function KunjunganDetail({ params }: { params: { id: string
         <div className="font-extrabold text-lg">{sched.cust_name}</div>
         <div className="text-xs text-mut mt-0.5">📍 {sched.address || "-"}</div>
         {sched.phone ? <div className="text-xs text-mut">☎ {sched.phone}</div> : null}
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <a href={gmapsUrl(sched.lat, sched.lng, sched.address, sched.cust_name)} target="_blank" rel="noreferrer"
+            className="btn btn-sm inline-flex items-center gap-1.5">
+            <GmapIcon /> Arahkan
+          </a>
+          {sched.lat == null ? <span className="text-[11px] text-mut">navigasi via alamat</span> : null}
+        </div>
         {sched.lat == null ? <div className="mt-1"><span className="pill p-mut">Belum ada titik GPS — check-in pertama jadi patokan</span></div> : null}
       </div>
 
