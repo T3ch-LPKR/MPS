@@ -26,6 +26,7 @@ export default function CheckinForm({
   const [state, action] = useFormState(submitCheckin as any, {} as any);
   const [pos, setPos] = useState<{ lat: number; lng: number; acc: number } | null>(null);
   const [gpsErr, setGpsErr] = useState("");
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [photo, setPhoto] = useState<string>("");
   const [lov, setLov] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -55,10 +56,10 @@ export default function CheckinForm({
   const gpsReady = !!pos && pos.acc <= GPS_MAX_ACC;
 
   function refreshGps() {
-    setGpsErr("");
+    setGpsErr(""); setGpsLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (p) => setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
-      (e) => setGpsErr(e.message || "Gagal ambil lokasi."),
+      (p) => { setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }); setGpsLoading(false); },
+      (e) => { setGpsErr(e.message || "Gagal ambil lokasi."); setGpsLoading(false); },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     );
   }
@@ -113,11 +114,16 @@ export default function CheckinForm({
         </div>
       </div>
 
-      <button type="button" onClick={refreshGps} className="text-xs text-brand underline">🔄 Muat ulang GPS</button>
+      <button type="button" onClick={refreshGps} disabled={gpsLoading}
+        className="text-xs text-brand underline inline-flex items-center gap-1.5 disabled:opacity-60">
+        {gpsLoading ? (
+          <><span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin inline-block" /> Mengambil lokasi…</>
+        ) : "🔄 Muat ulang GPS"}
+      </button>
 
       {pos && pos.acc > GPS_MAX_ACC ? (
         <div className="text-[11px] text-[#b45309] bg-[#fef4e2] rounded-lg px-3 py-2">
-          GPS masih ±{pos.acc} m (jaringan, belum satelit). Tunggu hingga akurat ≤{GPS_MAX_ACC} m — dekat jendela / luar ruangan, GPS/High-accuracy ON. Belum bisa check-in.
+          GPS masih ±{pos.acc} m. Setel izin lokasi ke <b>Tepat/Precise</b>: Chrome ⋮ → (ikon gembok/info situs) → <b>Izin/Location</b> → pilih <b>Precise/Tepat</b>. Lalu dekat jendela/outdoor & tunggu ≤{GPS_MAX_ACC} m. Belum bisa check-in.
         </div>
       ) : null}
 
