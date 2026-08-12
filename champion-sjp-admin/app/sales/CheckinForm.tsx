@@ -33,14 +33,16 @@ export default function CheckinForm({
   // ambil lokasi
   useEffect(() => {
     if (!navigator.geolocation) { setGpsErr("Perangkat tak mendukung GPS."); return; }
-    const id = navigator.geolocation.watchPosition(
-      (p) => {
-        const cand = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) };
-        setPos((prev) => (!prev || cand.acc <= prev.acc ? cand : prev)); // simpan yang paling akurat
-      },
-      (e) => setGpsErr(e.message || "Gagal ambil lokasi. Izinkan akses lokasi."),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
-    );
+    const onOk = (p: GeolocationPosition) => {
+      const cand = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) };
+      setPos((prev) => (!prev || cand.acc <= prev.acc ? cand : prev)); // simpan yang paling akurat
+      setGpsErr("");
+    };
+    const onErr = (e: GeolocationPositionError) => {
+      setGpsErr(e.message || "Gagal ambil lokasi. Izinkan akses lokasi.");
+      navigator.geolocation.getCurrentPosition(onOk, () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+    };
+    const id = navigator.geolocation.watchPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 30000, maximumAge: 15000 });
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
@@ -114,7 +116,7 @@ export default function CheckinForm({
           className={`w-full rounded-xl border-2 border-dashed grid place-items-center h-44 overflow-hidden ${photo ? "border-ok" : "border-line bg-white"}`}>
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="selfie" className="w-full h-full object-cover" />
+            <img src={photo} alt="selfie" className="w-full h-full object-contain" />
           ) : (
             <div className="text-center text-mut"><div className="text-3xl">📷</div><div className="text-xs mt-1">Ketuk untuk ambil foto</div></div>
           )}

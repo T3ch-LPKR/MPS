@@ -40,7 +40,7 @@ export default async function AbsensiDetail({
         ) : (
           <div className="flex gap-3">
             <div className="w-28 h-28 rounded-xl overflow-hidden bg-[#e5e7eb] grid place-items-center flex-shrink-0">
-              {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : <span className="text-3xl text-[#9ca3af]">📷</span>}
+              {url ? <img src={url} alt="" className="w-full h-full object-contain" /> : <span className="text-3xl text-[#9ca3af]">📷</span>}
             </div>
             <div className="text-sm space-y-1">
               <div><span className="text-mut">Waktu:</span> <b>{row.waktu}</b></div>
