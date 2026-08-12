@@ -40,9 +40,10 @@ export default function CheckinForm({
     };
     const onErr = (e: GeolocationPositionError) => {
       setGpsErr(e.message || "Gagal ambil lokasi. Izinkan akses lokasi.");
-      navigator.geolocation.getCurrentPosition(onOk, () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+      navigator.geolocation.getCurrentPosition(onOk, () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
     };
-    const id = navigator.geolocation.watchPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 30000, maximumAge: 15000 });
+    navigator.geolocation.getCurrentPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    const id = navigator.geolocation.watchPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 30000, maximumAge: 30000 });
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
@@ -102,7 +103,7 @@ export default function CheckinForm({
         </div>
       </div>
 
-      {pos && pos.acc > 75 ? (
+      {pos && pos.acc > 100 ? (
         <div className="text-[11px] text-[#b45309] bg-[#fef4e2] rounded-lg px-3 py-2">
           ⚠️ Sinyal GPS lemah (±{pos.acc} m). Pakai HP (bukan laptop), aktifkan GPS/Lokasi, keluar ke area terbuka, tunggu beberapa detik hingga akurat.
         </div>

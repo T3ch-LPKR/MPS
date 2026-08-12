@@ -31,10 +31,13 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
     };
     const onErr = (e: GeolocationPositionError) => {
       setGpsErr(e.message || "Gagal ambil lokasi. Izinkan akses lokasi.");
-      // fallback lokasi jaringan supaya tidak stuck (akurasi lebih rendah, ada peringatan)
-      navigator.geolocation.getCurrentPosition(onOk, () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+      // fallback jaringan (last resort) supaya tak stuck
+      navigator.geolocation.getCurrentPosition(onOk, () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
     };
-    const id = navigator.geolocation.watchPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 30000, maximumAge: 15000 });
+    // 1) pakai ulang fix akurat terbaru (mis. sisa Google Maps) -> cepat & akurat
+    navigator.geolocation.getCurrentPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    // 2) terus perbaiki di background
+    const id = navigator.geolocation.watchPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 30000, maximumAge: 30000 });
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
@@ -65,26 +68,30 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
       <input type="hidden" name="accuracy" value={pos?.acc ?? ""} />
       <input type="hidden" name="photo" value={photo} />
 
-      {/* GPS status */}
-      <div className={`rounded-xl p-3 text-white ${pos ? "bg-ok" : "bg-bad"}`}>
-        <div className="flex items-center gap-3">
-          <div className="text-2xl">{pos ? "📍" : "⛔"}</div>
-          <div className="flex-1">
-            {!pos ? (
-              <div className="font-bold text-sm">{gpsErr || "Mengambil lokasi…"}</div>
-            ) : (
-              <><div className="font-bold text-sm">Lokasi terkunci</div>
-                <div className="text-[11px] opacity-90">akurasi ±{pos.acc} m</div></>
-            )}
+      {/* GPS status: mengunci -> akurat (biarkan halaman terbuka, membaik sendiri) */}
+      {(() => {
+        const locking = !!pos && pos.acc > 50;
+        const bg = !pos ? "bg-bad" : locking ? "bg-warn" : "bg-ok";
+        const icon = !pos ? "⛔" : locking ? "🛰️" : "📍";
+        return (
+          <div className={`rounded-xl p-3 text-white ${bg}`}>
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">{icon}</div>
+              <div className="flex-1">
+                {!pos ? (
+                  <div className="font-bold text-sm">{gpsErr || "Mengambil lokasi…"}</div>
+                ) : locking ? (
+                  <><div className="font-bold text-sm">Mengunci GPS… ±{pos.acc} m</div>
+                    <div className="text-[11px] opacity-90">Tunggu beberapa detik (sambil ambil selfie) — akurasi membaik sendiri.</div></>
+                ) : (
+                  <><div className="font-bold text-sm">Lokasi akurat ±{pos.acc} m</div>
+                    <div className="text-[11px] opacity-90">Siap absen.</div></>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {pos && pos.acc > 75 ? (
-        <div className="text-[11px] text-[#b45309] bg-[#fef4e2] rounded-lg px-3 py-2">
-          ⚠️ Sinyal GPS lemah (±{pos.acc} m). Pakai HP (bukan laptop), aktifkan GPS/Lokasi, keluar ke area terbuka, tunggu beberapa detik hingga akurat.
-        </div>
-      ) : null}
+        );
+      })()}
 
       {/* Selfie */}
       <div>
