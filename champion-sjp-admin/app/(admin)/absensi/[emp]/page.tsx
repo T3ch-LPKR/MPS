@@ -39,9 +39,11 @@ export default async function AbsensiDetail({
           <div className="text-sm text-mut">Belum absen.</div>
         ) : (
           <div className="flex gap-4 flex-col sm:flex-row">
-            <div className="w-full sm:w-64 h-64 rounded-xl overflow-hidden bg-[#e5e7eb] grid place-items-center flex-shrink-0">
-              {url ? <img src={url} alt="" className="w-full h-full object-contain" /> : <span className="text-5xl text-[#9ca3af]">📷</span>}
-            </div>
+            {url ? (
+              <img src={url} alt="selfie" className="w-full sm:w-72 h-auto max-h-[28rem] object-contain rounded-xl bg-[#e5e7eb] flex-shrink-0" />
+            ) : (
+              <div className="w-full sm:w-72 h-64 rounded-xl bg-[#e5e7eb] grid place-items-center text-5xl text-[#9ca3af] flex-shrink-0">📷</div>
+            )}
             <div className="text-sm space-y-1">
               <div><span className="text-mut">Waktu:</span> <b>{row.waktu}</b></div>
               <div><span className="text-mut">Koordinat:</span> {row.lat != null ? `${Number(row.lat).toFixed(5)}, ${Number(row.lng).toFixed(5)}` : "—"}</div>
