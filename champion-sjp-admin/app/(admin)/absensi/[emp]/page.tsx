@@ -3,6 +3,7 @@ import Link from "next/link";
 import { q, q1 } from "@/lib/db";
 import { signedUrl } from "@/lib/storage";
 import MapClient from "@/app/hos/peta/MapClient";
+import GmapIcon from "@/components/GmapIcon";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,10 @@ export default async function AbsensiDetail({
               <div><span className="text-mut">Waktu:</span> <b>{row.waktu}</b></div>
               <div><span className="text-mut">Koordinat:</span> {row.lat != null ? `${Number(row.lat).toFixed(5)}, ${Number(row.lng).toFixed(5)}` : "—"}</div>
               <div><span className="text-mut">Akurasi:</span> {row.gps_accuracy ? `±${Math.round(row.gps_accuracy)} m` : "—"}</div>
+              {row.lat != null ? (
+                <a href={`https://www.google.com/maps?q=${row.lat},${row.lng}`} target="_blank" rel="noreferrer"
+                  className="btn btn-sm inline-flex items-center gap-1.5 mt-1"><GmapIcon size={16} /> Google Maps</a>
+              ) : null}
             </div>
           </div>
         )}

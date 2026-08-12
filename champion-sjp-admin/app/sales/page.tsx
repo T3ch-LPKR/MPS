@@ -2,6 +2,7 @@ import Link from "next/link";
 import { q, q1 } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { requireClockIn } from "@/lib/attendanceGuard";
+import { withNewsPhotoUrl } from "@/lib/newsPhoto";
 import NewsModal from "@/components/NewsModal";
 
 export const dynamic = "force-dynamic";
@@ -20,13 +21,14 @@ export default async function SalesHome() {
   let news: any[] = [];
   if (user?.user_id) {
     try {
-      news = await q<any>(`
-        SELECT news_id, title, body, (photo IS NOT NULL) AS has_photo
+      const nr = await q<any>(`
+        SELECT news_id, title, body, photo_path, (photo IS NOT NULL) AS has_bytea
           FROM sjp_news n
          WHERE is_active AND CURRENT_DATE BETWEEN start_date AND end_date
            AND 'salesman' = ANY(target_roles)
            AND NOT EXISTS (SELECT 1 FROM sjp_news_read r WHERE r.news_id=n.news_id AND r.user_id=$1)
          ORDER BY created_at DESC`, [user.user_id]);
+      news = await withNewsPhotoUrl(nr);
     } catch { news = []; }
   }
 

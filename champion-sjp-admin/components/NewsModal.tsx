@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { markNewsRead } from "@/app/newsRead";
 
-type News = { news_id: number; title: string; body: string | null; has_photo: boolean };
+type News = { news_id: number; title: string; body: string | null; photo_url: string | null };
 
 // Popup berita saat buka app. Begitu TAMPIL -> semua berita ditandai dibaca (server action +
 // revalidate cache) sehingga popup tak muncul lagi & badge unread berkurang.
@@ -31,8 +31,8 @@ export default function NewsModal({ items }: { items: News[] }) {
   return (
     <div className="fixed inset-0 z-[100] bg-black/60 overflow-y-auto flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-[400px] my-auto shadow-xl overflow-hidden">
-        {n.has_photo ? (
-          <img src={`/api/news-photo/${n.news_id}`} alt="" className="w-full max-h-60 object-contain bg-[#f2f2f2]" />
+        {n.photo_url ? (
+          <img src={n.photo_url} alt="" className="w-full max-h-60 object-contain bg-[#f2f2f2]" />
         ) : null}
         <div className="p-4">
           <div className="flex items-center justify-between mb-1">

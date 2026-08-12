@@ -3,6 +3,7 @@ import Link from "next/link";
 import { q } from "@/lib/db";
 import { signedUrls } from "@/lib/storage";
 import PurgeButton from "./PurgeButton";
+import GmapIcon from "@/components/GmapIcon";
 
 export const dynamic = "force-dynamic";
 
@@ -85,8 +86,9 @@ export default async function AbsensiPage({ searchParams }: { searchParams: { d?
                   <td className="td">{g.pulang ? <span className="pill p-ok">{g.pulang.jam}</span> : <span className="pill p-warn">belum</span>}</td>
                   <td className="td text-xs">
                     {g.masuk?.lat != null ? (
-                      <a href={`https://www.openstreetmap.org/?mlat=${g.masuk.lat}&mlon=${g.masuk.lng}#map=17/${g.masuk.lat}/${g.masuk.lng}`}
-                        target="_blank" rel="noreferrer" className="text-brand underline">lihat peta</a>
+                      <a href={`https://www.google.com/maps?q=${g.masuk.lat},${g.masuk.lng}`}
+                        target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand underline">
+                        <GmapIcon size={15} /> Peta</a>
                     ) : "—"}
                   </td>
                   <td className="td"><Link href={`/absensi/${g.emp_id}?d=${d}`} className="btn btn-sm">Detail</Link></td>

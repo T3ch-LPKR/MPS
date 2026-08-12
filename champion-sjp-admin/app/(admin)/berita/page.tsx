@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { q, q1 } from "@/lib/db";
+import { withNewsPhotoUrl } from "@/lib/newsPhoto";
 import { toggleNews, deleteNews, resetNewsRead } from "./actions";
 import NewsForm, { NewsInitial } from "./NewsForm";
 import SubmitButton from "@/components/SubmitButton";
@@ -10,17 +11,19 @@ const ROLE_LABEL: Record<string, string> = { salesman: "Salesman", hos: "HOS", c
 
 export default async function BeritaPage({ searchParams }: { searchParams: { edit?: string } }) {
   const editId = Number(searchParams.edit || 0) || 0;
-  const initial: NewsInitial | undefined = editId
-    ? (await q1<any>(`
-        SELECT news_id, title, body, target_roles, (photo IS NOT NULL) AS has_photo,
-               to_char(start_date,'YYYY-MM-DD') AS start_date,
-               to_char(end_date,'YYYY-MM-DD') AS end_date
-          FROM sjp_news WHERE news_id=$1`, [editId])) || undefined
-    : undefined;
+  let initial: NewsInitial | undefined;
+  if (editId) {
+    const row = await q1<any>(`
+      SELECT news_id, title, body, target_roles, photo_path, (photo IS NOT NULL) AS has_bytea,
+             to_char(start_date,'YYYY-MM-DD') AS start_date,
+             to_char(end_date,'YYYY-MM-DD') AS end_date
+        FROM sjp_news WHERE news_id=$1`, [editId]);
+    if (row) { const [wu] = await withNewsPhotoUrl([row]); initial = wu as any; }
+  }
 
   const rows = await q<any>(`
     SELECT news_id, title, start_date, end_date, target_roles, is_active,
-           (photo IS NOT NULL) AS has_photo,
+           (photo IS NOT NULL OR photo_path IS NOT NULL) AS has_photo,
            (is_active AND CURRENT_DATE BETWEEN start_date AND end_date) AS tayang,
            (SELECT count(*) FROM sjp_news_read r WHERE r.news_id=n.news_id) AS dibaca
       FROM sjp_news n

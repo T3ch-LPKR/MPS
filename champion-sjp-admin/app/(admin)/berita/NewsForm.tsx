@@ -13,7 +13,7 @@ export type NewsInitial = {
   start_date: string; // YYYY-MM-DD
   end_date: string;   // YYYY-MM-DD
   target_roles: string[];
-  has_photo: boolean;
+  photo_url: string | null;
 };
 
 function SubmitBtn({ editing }: { editing: boolean }) {
@@ -68,7 +68,7 @@ export default function NewsForm({ initial }: { initial?: NewsInitial }) {
   }
 
   // foto lama masih dipakai? (edit, ada foto, tak diganti, tak dihapus)
-  const showOld = editing && initial!.has_photo && !photo && !removePhoto;
+  const showOld = editing && !!initial!.photo_url && !photo && !removePhoto;
 
   return (
     <form key={formKey} action={action} className="space-y-3">
@@ -113,7 +113,7 @@ export default function NewsForm({ initial }: { initial?: NewsInitial }) {
           {photo ? (
             <img src={photo} alt="preview" className="w-16 h-16 object-cover rounded-lg border border-line" />
           ) : showOld ? (
-            <img src={`/api/news-photo/${initial!.news_id}`} alt="foto" className="w-16 h-16 object-cover rounded-lg border border-line" />
+            <img src={initial!.photo_url!} alt="foto" className="w-16 h-16 object-cover rounded-lg border border-line" />
           ) : (
             <span className="text-xs text-mut">belum ada foto</span>
           )}

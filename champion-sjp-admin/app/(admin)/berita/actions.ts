@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { q } from "@/lib/db";
+import { q, q1 } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { uploadPhoto, removePhotos } from "@/lib/storage";
 
 const ROLES = ["salesman", "hos", "collector"];
+const newsPath = (id: number) => `news/${id}.jpg`;
 
 function decodePhoto(dataUrl: string): Buffer | null {
   if (!dataUrl) return null;
@@ -27,10 +29,16 @@ export async function createNews(_prev: any, formData: FormData) {
   if (end_date < start_date) return { error: "Tanggal selesai tidak boleh sebelum mulai." };
   if (roles.length === 0) return { error: "Pilih minimal satu target (Salesman/HOS/Collector)." };
 
-  await q(
-    `INSERT INTO sjp_news (title, body, photo, start_date, end_date, target_roles, is_active, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,true,$7)`,
-    [title, body, photo, start_date, end_date, roles, s?.username || "admin"]);
+  const ins = await q1<{ news_id: number }>(
+    `INSERT INTO sjp_news (title, body, start_date, end_date, target_roles, is_active, created_by)
+     VALUES ($1,$2,$3,$4,$5,true,$6) RETURNING news_id`,
+    [title, body, start_date, end_date, roles, s?.username || "admin"]);
+  const id = ins?.news_id;
+  if (id && photo) {
+    const path = await uploadPhoto(newsPath(id), photo);
+    if (path) await q(`UPDATE sjp_news SET photo_path=$2 WHERE news_id=$1`, [id, path]);
+    else await q(`UPDATE sjp_news SET photo=$2 WHERE news_id=$1`, [id, photo]); // fallback bytea
+  }
   revalidatePath("/berita");
   return { ok: true };
 }
@@ -51,15 +59,17 @@ export async function updateNews(_prev: any, formData: FormData) {
   if (end_date < start_date) return { error: "Tanggal selesai tidak boleh sebelum mulai." };
   if (roles.length === 0) return { error: "Pilih minimal satu target (Salesman/HOS/Collector)." };
 
+  // field teks
+  await q(`UPDATE sjp_news SET title=$2, body=$3, start_date=$4, end_date=$5, target_roles=$6 WHERE news_id=$1`,
+    [id, title, body, start_date, end_date, roles]);
+
   if (newPhoto) {
-    await q(`UPDATE sjp_news SET title=$2, body=$3, start_date=$4, end_date=$5, target_roles=$6, photo=$7 WHERE news_id=$1`,
-      [id, title, body, start_date, end_date, roles, newPhoto]);
+    const path = await uploadPhoto(newsPath(id), newPhoto);
+    if (path) await q(`UPDATE sjp_news SET photo_path=$2, photo=NULL WHERE news_id=$1`, [id, path]);
+    else await q(`UPDATE sjp_news SET photo=$2, photo_path=NULL WHERE news_id=$1`, [id, newPhoto]); // fallback
   } else if (removePhoto) {
-    await q(`UPDATE sjp_news SET title=$2, body=$3, start_date=$4, end_date=$5, target_roles=$6, photo=NULL WHERE news_id=$1`,
-      [id, title, body, start_date, end_date, roles]);
-  } else {
-    await q(`UPDATE sjp_news SET title=$2, body=$3, start_date=$4, end_date=$5, target_roles=$6 WHERE news_id=$1`,
-      [id, title, body, start_date, end_date, roles]);
+    await removePhotos([newsPath(id)]);
+    await q(`UPDATE sjp_news SET photo=NULL, photo_path=NULL WHERE news_id=$1`, [id]);
   }
   revalidatePath("/berita");
   return { ok: true };
@@ -75,6 +85,7 @@ export async function toggleNews(formData: FormData) {
 export async function deleteNews(formData: FormData) {
   const id = Number(formData.get("news_id"));
   if (!id) return;
+  await removePhotos([newsPath(id)]); // hapus objek Storage bila ada
   await q(`DELETE FROM sjp_news_read WHERE news_id=$1`, [id]);
   await q(`DELETE FROM sjp_news WHERE news_id=$1`, [id]);
   revalidatePath("/berita");

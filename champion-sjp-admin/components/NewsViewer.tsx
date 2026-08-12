@@ -9,7 +9,7 @@ export type NewsItem = {
   news_id: number;
   title: string;
   body: string | null;
-  has_photo: boolean;
+  photo_url: string | null;
   period: string;
 };
 
@@ -33,8 +33,8 @@ export default function NewsViewer({ items }: { items: NewsItem[] }) {
       {items.map((n) => (
         <button key={n.news_id} onClick={() => setSel(n)}
           className="card overflow-hidden w-full text-left active:opacity-70">
-          {n.has_photo ? (
-            <img src={`/api/news-photo/${n.news_id}`} alt="" className="w-full max-h-48 object-cover" />
+          {n.photo_url ? (
+            <img src={n.photo_url} alt="" loading="lazy" className="w-full max-h-48 object-cover" />
           ) : null}
           <div className="p-3">
             <div className="font-bold flex items-center justify-between gap-2">
@@ -56,8 +56,8 @@ export default function NewsViewer({ items }: { items: NewsItem[] }) {
               <div className="font-bold text-sm flex-1 truncate">Berita</div>
               <button onClick={() => setSel(null)} className="text-[11px] bg-white/20 rounded-full px-3 py-1">Tutup</button>
             </div>
-            {sel.has_photo ? (
-              <img src={`/api/news-photo/${sel.news_id}`} alt="" className="w-full object-contain bg-[#f2f2f2]" />
+            {sel.photo_url ? (
+              <img src={sel.photo_url} alt="" className="w-full object-contain bg-[#f2f2f2]" />
             ) : null}
             <div className="p-4">
               <div className="text-[11px] font-bold uppercase tracking-wide text-brand mb-1">📰 Pengumuman</div>
