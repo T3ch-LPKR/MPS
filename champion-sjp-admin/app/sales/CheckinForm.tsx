@@ -114,12 +114,12 @@ export default function CheckinForm({
         <label className="lbl">Foto Selfie di Lokasi {photoMandatory ? <span className="text-brand">*</span> : <span className="text-mut font-normal">(opsional)</span>}</label>
         <input ref={fileRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onPhoto} />
         <button type="button" onClick={() => fileRef.current?.click()}
-          className={`w-full rounded-xl border-2 border-dashed grid place-items-center h-44 overflow-hidden ${photo ? "border-ok" : "border-line bg-white"}`}>
+          className={`w-full rounded-xl border-2 border-dashed grid place-items-center min-h-[11rem] p-1 overflow-hidden ${photo ? "border-ok bg-[#f2f2f2]" : "border-line bg-white"}`}>
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="selfie" className="w-full h-full object-contain" />
+            <img src={photo} alt="selfie" className="w-full max-h-96 object-contain rounded-lg" />
           ) : (
-            <div className="text-center text-mut"><div className="text-3xl">📷</div><div className="text-xs mt-1">Ketuk untuk ambil foto</div></div>
+            <div className="text-center text-mut py-10"><div className="text-3xl">📷</div><div className="text-xs mt-1">Ketuk untuk ambil foto</div></div>
           )}
         </button>
       </div>
