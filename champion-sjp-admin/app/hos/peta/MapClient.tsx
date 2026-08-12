@@ -28,7 +28,7 @@ function ensureLeaflet(): Promise<any> {
   });
 }
 
-export default function MapClient({ points }: { points: Pt[] }) {
+export default function MapClient({ points, height = 340 }: { points: Pt[]; height?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
 
@@ -56,10 +56,11 @@ export default function MapClient({ points }: { points: Pt[] }) {
       });
       if (line.length > 1) L.polyline(line, { color: "#16a34a", weight: 3, opacity: .6, dashArray: "6,7" }).addTo(map);
       const all = points.map((p) => [p.lat, p.lng]) as [number, number][];
-      if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.25));
+      if (all.length === 1) map.setView(all[0], 17);
+      else if (all.length > 1) map.fitBounds(L.latLngBounds(all).pad(0.25));
     });
     return () => { cancelled = true; if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } };
   }, [points]);
 
-  return <div ref={ref} style={{ height: 340, borderRadius: 12, overflow: "hidden", zIndex: 0 }} className="border border-line" />;
+  return <div ref={ref} style={{ height, borderRadius: 12, overflow: "hidden", zIndex: 0 }} className="border border-line" />;
 }
