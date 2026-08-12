@@ -57,8 +57,19 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
     img.src = url;
   }
 
+  const GPS_MAX_ACC = 150; // tolak titik kasar (mis. izin "Approximate"/jaringan ±ribuan meter)
+  const gpsOk = !!pos && pos.acc <= GPS_MAX_ACC;
+
+  function refreshGps() {
+    setGpsErr("");
+    navigator.geolocation.getCurrentPosition(
+      (p) => setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
+      (e) => setGpsErr(e.message || "Gagal ambil lokasi."),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+    );
+  }
   const photoOk = photoMandatory ? !!photo : true;
-  const canSubmit = !!pos && photoOk;
+  const canSubmit = gpsOk && photoOk;
 
   return (
     <form action={action} className="space-y-3">
@@ -93,6 +104,8 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
         );
       })()}
 
+      <button type="button" onClick={refreshGps} className="text-xs text-brand underline">🔄 Muat ulang GPS</button>
+
       {/* Selfie */}
       <div>
         <label className="lbl">Foto Selfie {photoMandatory ? <span className="text-brand">*</span> : <span className="text-mut font-normal">(opsional)</span>}</label>
@@ -105,7 +118,12 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
       </div>
 
       {state?.error ? <div className="text-sm text-bad bg-[#fdeaea] rounded-lg px-3 py-2">{state.error}</div> : null}
-      {!canSubmit ? (
+      {pos && !gpsOk ? (
+        <div className="text-[11px] text-[#b45309] bg-[#fef4e2] rounded-lg px-3 py-2">
+          GPS masih ±{pos.acc} m (dari jaringan, belum satelit). Tunggu hingga akurat ≤{GPS_MAX_ACC} m — dekat jendela / luar ruangan, GPS/High-accuracy ON. Belum bisa absen.
+        </div>
+      ) : null}
+      {!canSubmit && (!pos || (photoMandatory && !photo)) ? (
         <div className="text-[11px] text-mut text-center">
           Lengkapi: {[!pos ? "GPS" : null, (photoMandatory && !photo) ? "foto" : null].filter(Boolean).join(", ")}
         </div>

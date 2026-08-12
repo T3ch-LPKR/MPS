@@ -47,11 +47,21 @@ export default function CheckinForm({
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
+  const GPS_MAX_ACC = 150; // tolak titik kasar (izin "Approximate"/jaringan ±ribuan meter)
   const hasCustGeo = custLat != null && custLng != null;
   const dist = pos && hasCustGeo ? haversineMeters(pos.lat, pos.lng, Number(custLat), Number(custLng)) : null;
   const inRadius = dist == null ? true : dist <= GEOFENCE_M; // tanpa geo -> titik pertama
-  // Non-blocking: cukup ada posisi GPS. Di luar radius tetap boleh submit (masuk approval admin).
-  const gpsReady = !!pos;
+  // Butuh GPS yang cukup akurat. Di luar radius tetap boleh submit (masuk approval admin).
+  const gpsReady = !!pos && pos.acc <= GPS_MAX_ACC;
+
+  function refreshGps() {
+    setGpsErr("");
+    navigator.geolocation.getCurrentPosition(
+      (p) => setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
+      (e) => setGpsErr(e.message || "Gagal ambil lokasi."),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+    );
+  }
 
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -103,9 +113,11 @@ export default function CheckinForm({
         </div>
       </div>
 
-      {pos && pos.acc > 100 ? (
+      <button type="button" onClick={refreshGps} className="text-xs text-brand underline">🔄 Muat ulang GPS</button>
+
+      {pos && pos.acc > GPS_MAX_ACC ? (
         <div className="text-[11px] text-[#b45309] bg-[#fef4e2] rounded-lg px-3 py-2">
-          ⚠️ Sinyal GPS lemah (±{pos.acc} m). Pakai HP (bukan laptop), aktifkan GPS/Lokasi, keluar ke area terbuka, tunggu beberapa detik hingga akurat.
+          GPS masih ±{pos.acc} m (jaringan, belum satelit). Tunggu hingga akurat ≤{GPS_MAX_ACC} m — dekat jendela / luar ruangan, GPS/High-accuracy ON. Belum bisa check-in.
         </div>
       ) : null}
 
