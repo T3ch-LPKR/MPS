@@ -53,6 +53,9 @@ export default async function SalesLayout({ children }: { children: React.ReactN
           <Link href="/sales" className="flex-1 text-center py-2 text-[11px] font-semibold text-brand">
             <div className="text-lg leading-none">🗓️</div>Plan
           </Link>
+          <Link href="/sales/absen" className="flex-1 text-center py-2 text-[11px] font-semibold text-mut">
+            <div className="text-lg leading-none">🕒</div>Absen
+          </Link>
           <Link href="/sales/riwayat" className="flex-1 text-center py-2 text-[11px] font-semibold text-mut">
             <div className="text-lg leading-none">🕘</div>Riwayat
           </Link>

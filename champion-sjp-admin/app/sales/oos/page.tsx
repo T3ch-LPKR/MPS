@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { q } from "@/lib/db";
+import { getSession } from "@/lib/session";
 import { getBoolSetting } from "@/lib/settings";
+import { requireClockIn } from "@/lib/attendanceGuard";
 import OOSForm from "../OOSForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function OOSPage() {
+  const user = await getSession();
+  await requireClockIn(user?.emp_id || "");
   const catatan = await q<any>(`SELECT lov_id, kode, teks FROM sjp_lov WHERE tipe='CATATAN' AND is_active ORDER BY kode`);
   const oos = await q<any>(`SELECT lov_id, kode, teks FROM sjp_lov WHERE tipe='OOS' AND is_active ORDER BY kode`);
   const photoMandatory = await getBoolSetting("photo_mandatory", true);

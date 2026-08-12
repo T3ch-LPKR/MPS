@@ -10,6 +10,7 @@ const NAV = [
   { href: "/lov", label: "LOV Catatan", icon: "✎" },
   { href: "/prospek", label: "Prospek", icon: "◎" },
   { href: "/approval-gps", label: "Approval GPS", icon: "📍" },
+  { href: "/absensi", label: "Absensi", icon: "🕒" },
   { href: "/berita", label: "Berita", icon: "📰" },
   { href: "/users", label: "Kelola User", icon: "⚙" },
   { href: "/pengaturan", label: "Pengaturan", icon: "🛠" },

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { q, q1 } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getBoolSetting } from "@/lib/settings";
+import { requireClockIn } from "@/lib/attendanceGuard";
 import CheckinForm from "../../CheckinForm";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,7 @@ function WaIcon() {
 export default async function KunjunganDetail({ params }: { params: { id: string } }) {
   const user = await getSession();
   const emp = user?.emp_id || "";
+  await requireClockIn(emp);
   const sched = await q1<any>(`
     SELECT s.sched_id, s.cust_code, s.status, c.cust_name, c.address, c.phone,
            g.lat, g.lng

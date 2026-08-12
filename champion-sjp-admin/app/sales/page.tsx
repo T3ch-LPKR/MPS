@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { q, q1 } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { requireClockIn } from "@/lib/attendanceGuard";
 import NewsModal from "@/components/NewsModal";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "
 export default async function SalesHome() {
   const user = await getSession();
   const emp = user?.emp_id || "";
+  await requireClockIn(emp); // paksa absen masuk dulu bila mandatory
   const now = new Date();
   const tgl = `${HARI[now.getDay()]}, ${now.getDate()} ${BULAN[now.getMonth()]} ${now.getFullYear()}`;
 
