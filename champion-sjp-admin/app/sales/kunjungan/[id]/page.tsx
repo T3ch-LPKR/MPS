@@ -29,6 +29,27 @@ function gmapsUrl(lat: any, lng: any, address?: string | null, name?: string) {
   return `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
+// Normalisasi HP Indonesia -> 62xxxxxxxxxx (tanpa +). Terima '08...', '+628...', '628...', '8...'.
+function normalizePhone(raw?: string | null): string | null {
+  if (!raw) return null;
+  let d = String(raw).replace(/[^\d+]/g, "").replace(/^\+/, "");
+  if (d.startsWith("0")) d = "62" + d.slice(1);
+  else if (d.startsWith("8")) d = "62" + d;
+  // else: sudah '62...' atau format lain
+  if (!/^\d{9,15}$/.test(d)) return null;
+  return d;
+}
+
+// Ikon WhatsApp resmi (hijau #25D366 + gagang telepon putih) — inline, tanpa aset eksternal.
+function WaIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path fill="#25D366" d="M.06 24l1.68-6.14A11.87 11.87 0 0 1 .16 11.9C.16 5.34 5.5.02 12.06.02c3.18 0 6.17 1.24 8.42 3.49a11.82 11.82 0 0 1 3.48 8.41c0 6.56-5.34 11.88-11.9 11.88a11.9 11.9 0 0 1-5.68-1.45L.06 24z" />
+      <path fill="#fff" d="M8.53 6.9c-.2-.44-.4-.45-.6-.46l-.5-.01c-.18 0-.46.06-.7.32-.24.26-.92.9-.92 2.2 0 1.3.94 2.55 1.07 2.72.13.18 1.83 2.93 4.5 4 .63.27 1.12.43 1.5.55.63.2 1.2.17 1.66.1.5-.07 1.56-.64 1.78-1.25.22-.61.22-1.14.16-1.25-.07-.11-.24-.18-.5-.31-.26-.13-1.56-.77-1.8-.86-.24-.09-.42-.13-.6.13-.18.26-.68.86-.83 1.03-.15.18-.3.2-.56.07-.26-.13-1.1-.4-2.1-1.29-.78-.69-1.3-1.55-1.45-1.81-.15-.26-.02-.4.11-.53.12-.12.26-.31.4-.46.13-.16.17-.26.26-.44.09-.18.04-.33-.02-.46-.06-.13-.56-1.42-.79-1.94z" />
+    </svg>
+  );
+}
+
 export default async function KunjunganDetail({ params }: { params: { id: string } }) {
   const user = await getSession();
   const emp = user?.emp_id || "";
@@ -47,6 +68,7 @@ export default async function KunjunganDetail({ params }: { params: { id: string
   const photoMandatory = await getBoolSetting("photo_mandatory", true);
 
   const items = Array.isArray(lo?.items_json) ? lo.items_json : [];
+  const hp = normalizePhone(sched.phone);
 
   return (
     <div className="p-4 space-y-3">
@@ -60,6 +82,14 @@ export default async function KunjunganDetail({ params }: { params: { id: string
             className="btn btn-sm inline-flex items-center gap-1.5">
             <GmapIcon /> Arahkan
           </a>
+          {hp ? (
+            <a href={`tel:+${hp}`} className="btn btn-sm inline-flex items-center gap-1.5">☎ Telepon</a>
+          ) : null}
+          {hp ? (
+            <a href={`https://wa.me/${hp}`} target="_blank" rel="noreferrer" className="btn btn-sm inline-flex items-center gap-1.5">
+              <WaIcon /> WhatsApp
+            </a>
+          ) : null}
           {sched.lat == null ? <span className="text-[11px] text-mut">navigasi via alamat</span> : null}
         </div>
         {sched.lat == null ? <div className="mt-1"><span className="pill p-mut">Belum ada titik GPS — check-in pertama jadi patokan</span></div> : null}
