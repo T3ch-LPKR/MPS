@@ -20,7 +20,7 @@ export default async function AbsenPage() {
 
   const rows = await q<any>(
     `SELECT mode, to_char(checkin_dt AT TIME ZONE 'Asia/Jakarta','HH24:MI') jam
-       FROM sjp_attendance WHERE emp_id=$1 AND tgl=CURRENT_DATE`, [emp]);
+       FROM sjp_attendance WHERE emp_id=$1 AND tgl=(now() AT TIME ZONE 'Asia/Jakarta')::date`, [emp]);
   const masuk = rows.find((r) => r.mode === "MASUK");
   const pulang = rows.find((r) => r.mode === "PULANG");
   const photoMandatory = await getBoolSetting("attendance_photo_mandatory", true);

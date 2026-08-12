@@ -5,6 +5,7 @@ import { q, q1 } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { haversineMeters, GEOFENCE_M } from "@/lib/geo";
 import { getBoolSetting } from "@/lib/settings";
+import { uploadPhoto } from "@/lib/storage";
 
 function num(v: FormDataEntryValue | null): number | null {
   if (v === null || v === "") return null;
@@ -97,12 +98,21 @@ export async function submitCheckin(_prev: any, formData: FormData) {
   const ins = await q1<{ visit_id: number }>(
     `INSERT INTO sjp_visit_log
        (tgl, emp_id, cust_code, prospek_id, sched_id, is_oos, oos_lov_id, checkin_dt,
-        lat, lng, gps_accuracy, gps_distance_m, gps_valid, photo, catatan_lov_id, free_text, is_effective_call)
-     VALUES (CURRENT_DATE,$1,$2,$3,$4,$5,$6, now(), $7,$8,$9,$10,$11,$12,$13,$14,$15)
+        lat, lng, gps_accuracy, gps_distance_m, gps_valid, catatan_lov_id, free_text, is_effective_call)
+     VALUES (CURRENT_DATE,$1,$2,$3,$4,$5,$6, now(), $7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING visit_id`,
     [emp, cust_code, prospek_id, sched_id, is_oos, oos_lov_id,
-     lat, lng, accuracy, gps_distance, gps_valid, photoBuf, catatan_lov_id, free_text, effective]
+     lat, lng, accuracy, gps_distance, gps_valid, catatan_lov_id, free_text, effective]
   );
+  const visit_id = ins?.visit_id;
+
+  // Foto kunjungan -> Supabase Storage (fallback bytea bila upload gagal).
+  if (visit_id && photoBuf) {
+    const wib = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+    const path = await uploadPhoto(`visits/${emp}/${wib}/${visit_id}.jpg`, photoBuf);
+    if (path) await q(`UPDATE sjp_visit_log SET photo_path=$2 WHERE visit_id=$1`, [visit_id, path]);
+    else await q(`UPDATE sjp_visit_log SET photo=$2 WHERE visit_id=$1`, [visit_id, photoBuf]);
+  }
 
   // Usulan GPS baru -> antrean approval admin (1 PENDING per customer, terbaru menimpa)
   if (geoProposal && cust_code) {

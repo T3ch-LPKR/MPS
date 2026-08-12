@@ -5,14 +5,15 @@ import { downloadPhoto } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
-// Foto berita -> image/jpeg (same-origin). Dual-read: Storage (photo_path) atau bytea lama.
+// Foto absensi (dari Storage) di-stream same-origin. Guard admin/hos/superadmin.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const s = await getSession();
-  if (!s) return new NextResponse("unauthorized", { status: 401 });
-  const row = await q1<{ photo: Buffer | null; photo_path: string | null }>(
-    `SELECT photo, photo_path FROM sjp_news WHERE news_id=$1`, [Number(params.id)]
-  );
-  const buf = row?.photo_path ? await downloadPhoto(row.photo_path) : (row?.photo ?? null);
+  if (!s || !["hos", "admin", "superadmin"].includes(s.role)) {
+    return new NextResponse("unauthorized", { status: 401 });
+  }
+  const row = await q1<{ photo_path: string | null }>(
+    `SELECT photo_path FROM sjp_attendance WHERE att_id=$1`, [Number(params.id)]);
+  const buf = await downloadPhoto(row?.photo_path || null);
   if (!buf) return new NextResponse("not found", { status: 404 });
   return new NextResponse(buf as any, {
     status: 200,

@@ -1,7 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { q, q1 } from "@/lib/db";
-import { signedUrl } from "@/lib/storage";
 import MapClient from "@/app/hos/peta/MapClient";
 import GmapIcon from "@/components/GmapIcon";
 
@@ -19,16 +18,14 @@ export default async function AbsensiDetail({
 
   const empRow = await q1<any>(`SELECT emp_name FROM sjp_employee WHERE emp_id=$1`, [emp]);
   const rows = await q<any>(
-    `SELECT mode, to_char(checkin_dt AT TIME ZONE 'Asia/Jakarta','DD Mon YYYY HH24:MI') waktu,
+    `SELECT att_id, mode, to_char(checkin_dt AT TIME ZONE 'Asia/Jakarta','DD Mon YYYY HH24:MI') waktu,
             lat, lng, gps_accuracy, photo_path
        FROM sjp_attendance WHERE emp_id=$1 AND tgl=$2`, [emp, d]);
   const masuk = rows.find((r) => r.mode === "MASUK");
   const pulang = rows.find((r) => r.mode === "PULANG");
 
-  const [masukUrl, pulangUrl] = await Promise.all([
-    signedUrl(masuk?.photo_path || null),
-    signedUrl(pulang?.photo_path || null),
-  ]);
+  const masukUrl = masuk?.photo_path ? `/api/attendance-photo/${masuk.att_id}` : null;
+  const pulangUrl = pulang?.photo_path ? `/api/attendance-photo/${pulang.att_id}` : null;
 
   const points: any[] = [];
   if (masuk?.lat != null) points.push({ lat: Number(masuk.lat), lng: Number(masuk.lng), label: "Masuk", type: "done" });

@@ -1,7 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { q } from "@/lib/db";
-import { signedUrls } from "@/lib/storage";
 import PurgeButton from "./PurgeButton";
 import GmapIcon from "@/components/GmapIcon";
 
@@ -21,7 +20,7 @@ export default async function AbsensiPage({ searchParams }: { searchParams: { d?
   const label = `${HARI[dt.getDay()]}, ${dt.getDate()} ${BULAN[dt.getMonth()]} ${dt.getFullYear()}`;
 
   const rows = await q<any>(
-    `SELECT a.emp_id, e.emp_name, a.mode,
+    `SELECT a.att_id, a.emp_id, e.emp_name, a.mode,
             to_char(a.checkin_dt AT TIME ZONE 'Asia/Jakarta','HH24:MI') jam,
             a.lat, a.lng, a.photo_path
        FROM sjp_attendance a
@@ -37,10 +36,6 @@ export default async function AbsensiPage({ searchParams }: { searchParams: { d?
     map.set(r.emp_id, g);
   }
   const list = Array.from(map.values());
-
-  // signed URL thumbnail foto masuk (batch)
-  const masukPaths = list.map((g) => g.masuk?.photo_path).filter(Boolean);
-  const urls = await signedUrls(masukPaths, 3600);
 
   const dayLink = (delta: number) => {
     const x = new Date(dt); x.setDate(dt.getDate() + delta);
@@ -77,8 +72,8 @@ export default async function AbsensiPage({ searchParams }: { searchParams: { d?
               {list.map((g) => (
                 <tr key={g.emp_id} className="hover:bg-[#fafafa]">
                   <td className="td">
-                    {g.masuk?.photo_path && urls[g.masuk.photo_path] ? (
-                      <img src={urls[g.masuk.photo_path]} alt="" loading="lazy" className="w-10 h-10 object-cover rounded-lg border border-line" />
+                    {g.masuk?.photo_path ? (
+                      <img src={`/api/attendance-photo/${g.masuk.att_id}`} alt="" loading="lazy" className="w-10 h-10 object-cover rounded-lg border border-line" />
                     ) : <span className="text-mut text-xs">—</span>}
                   </td>
                   <td className="td font-semibold">{g.emp_name || g.emp_id}</td>

@@ -40,7 +40,9 @@ export async function submitAbsen(_prev: any, formData: FormData) {
   if (photoMandatory && !photoBuf) return { error: "Foto selfie wajib untuk absen." };
 
   if (mode === "PULANG") {
-    const masuk = await q1(`SELECT 1 FROM sjp_attendance WHERE emp_id=$1 AND tgl=CURRENT_DATE AND mode='MASUK'`, [emp]);
+    const masuk = await q1(
+      `SELECT 1 FROM sjp_attendance
+        WHERE emp_id=$1 AND tgl=(now() AT TIME ZONE 'Asia/Jakarta')::date AND mode='MASUK'`, [emp]);
     if (!masuk) return { error: "Absen masuk dulu sebelum absen pulang." };
   }
 
@@ -53,7 +55,7 @@ export async function submitAbsen(_prev: any, formData: FormData) {
 
   await q(
     `INSERT INTO sjp_attendance (tgl, emp_id, mode, checkin_dt, lat, lng, gps_accuracy, photo_path)
-     VALUES (CURRENT_DATE, $1, $2, now(), $3, $4, $5, $6)
+     VALUES ((now() AT TIME ZONE 'Asia/Jakarta')::date, $1, $2, now(), $3, $4, $5, $6)
      ON CONFLICT (tgl, emp_id, mode)
      DO UPDATE SET checkin_dt=now(), lat=EXCLUDED.lat, lng=EXCLUDED.lng,
                    gps_accuracy=EXCLUDED.gps_accuracy, photo_path=COALESCE(EXCLUDED.photo_path, sjp_attendance.photo_path)`,

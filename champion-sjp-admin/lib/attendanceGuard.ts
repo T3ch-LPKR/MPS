@@ -9,6 +9,7 @@ export async function requireClockIn(emp: string | null | undefined) {
   const mandatory = await getBoolSetting("attendance_masuk_mandatory", false);
   if (!mandatory) return;
   const masuk = await q1(
-    `SELECT 1 FROM sjp_attendance WHERE emp_id=$1 AND tgl=CURRENT_DATE AND mode='MASUK'`, [emp]);
+    `SELECT 1 FROM sjp_attendance
+      WHERE emp_id=$1 AND tgl=(now() AT TIME ZONE 'Asia/Jakarta')::date AND mode='MASUK'`, [emp]);
   if (!masuk) redirect("/sales/absen");
 }

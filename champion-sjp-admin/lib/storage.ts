@@ -25,6 +25,17 @@ export async function uploadPhoto(path: string, buf: Buffer): Promise<string | n
   } catch { return null; }
 }
 
+/** Download objek (server-side) -> Buffer, untuk di-stream same-origin (aman lintas-domain/CSP). */
+export async function downloadPhoto(path: string | null): Promise<Buffer | null> {
+  if (!path || !storageReady()) return null;
+  try {
+    const res = await fetch(`${URL_BASE}/storage/v1/object/${BUCKET}/${path}`, { headers: headers() });
+    if (!res.ok) return null;
+    const ab = await res.arrayBuffer();
+    return Buffer.from(ab);
+  } catch { return null; }
+}
+
 /** Signed URL 1 file (default 1 jam). */
 export async function signedUrl(path: string | null, expiresIn = 3600): Promise<string | null> {
   if (!path || !storageReady()) return null;
