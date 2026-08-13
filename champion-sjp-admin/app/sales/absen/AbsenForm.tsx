@@ -2,42 +2,31 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
-import { submitAbsen } from "./actions";
-
-function SubmitBtn({ disabled, mode }: { disabled: boolean; mode: "MASUK" | "PULANG" }) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={disabled || pending}
-      className={`btn w-full justify-center py-3 ${mode === "MASUK" ? "btn-pri" : "bg-ink text-white border-ink"}`}>
-      {pending ? "Mengirim…" : mode === "MASUK" ? "✔ Absen Masuk" : "✔ Absen Pulang"}
-    </button>
-  );
-}
+import { useRouter } from "next/navigation";
+import { enqueue } from "@/lib/attendanceQueue";
 
 export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "PULANG"; photoMandatory: boolean }) {
-  const [state, action] = useFormState(submitAbsen as any, {} as any);
+  const router = useRouter();
   const [pos, setPos] = useState<{ lat: number; lng: number; acc: number } | null>(null);
   const [gpsErr, setGpsErr] = useState("");
   const [gpsLoading, setGpsLoading] = useState(false);
   const [photo, setPhoto] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState<{ type: "err" | "offline"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) { setGpsErr("Perangkat tak mendukung GPS."); return; }
     const onOk = (p: GeolocationPosition) => {
       const cand = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) };
-      setPos((prev) => (!prev || cand.acc <= prev.acc ? cand : prev)); // simpan yang paling akurat
+      setPos((prev) => (!prev || cand.acc <= prev.acc ? cand : prev));
       setGpsErr("");
     };
     const onErr = (e: GeolocationPositionError) => {
       setGpsErr(e.message || "Gagal ambil lokasi. Izinkan akses lokasi.");
-      // fallback jaringan (last resort) supaya tak stuck
       navigator.geolocation.getCurrentPosition(onOk, () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
     };
-    // 1) pakai ulang fix akurat terbaru (mis. sisa Google Maps) -> cepat & akurat
     navigator.geolocation.getCurrentPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
-    // 2) terus perbaiki di background
     const id = navigator.geolocation.watchPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 30000, maximumAge: 30000 });
     return () => navigator.geolocation.clearWatch(id);
   }, []);
@@ -58,7 +47,7 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
     img.src = url;
   }
 
-  const GPS_MAX_ACC = 150; // tolak titik kasar (mis. izin "Approximate"/jaringan ±ribuan meter)
+  const GPS_MAX_ACC = 150;
   const gpsOk = !!pos && pos.acc <= GPS_MAX_ACC;
 
   function refreshGps() {
@@ -70,17 +59,45 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
     );
   }
   const photoOk = photoMandatory ? !!photo : true;
-  const canSubmit = gpsOk && photoOk;
+  const canSubmit = gpsOk && photoOk && !submitting;
+
+  async function doSubmit() {
+    if (!gpsOk || !photoOk || submitting) return;
+    setSubmitting(true); setMsg(null);
+    const payload = { mode, lat: pos!.lat, lng: pos!.lng, accuracy: pos!.acc, photo, client_ts: new Date().toISOString() };
+
+    // offline langsung -> simpan
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      try { await enqueue(payload); } catch {}
+      setMsg({ type: "offline", text: "Tersimpan offline — akan dikirim otomatis saat online." });
+      setTimeout(() => { router.push("/sales/absen"); router.refresh(); }, 1400);
+      return;
+    }
+
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const r = await fetch("/api/attendance/submit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload), signal: ctrl.signal,
+      });
+      clearTimeout(to);
+      if (r.ok) { router.push("/sales/absen"); router.refresh(); return; }
+      const j = await r.json().catch(() => ({}));
+      setMsg({ type: "err", text: j?.error || "Gagal menyimpan absen." });
+      setSubmitting(false);
+    } catch {
+      clearTimeout(to);
+      // jaringan gagal/timeout -> simpan offline
+      try { await enqueue(payload); } catch {}
+      setMsg({ type: "offline", text: "Tersimpan offline — akan dikirim otomatis saat online." });
+      setTimeout(() => { router.push("/sales/absen"); router.refresh(); }, 1400);
+    }
+  }
 
   return (
-    <form action={action} className="space-y-3">
-      <input type="hidden" name="mode" value={mode} />
-      <input type="hidden" name="lat" value={pos?.lat ?? ""} />
-      <input type="hidden" name="lng" value={pos?.lng ?? ""} />
-      <input type="hidden" name="accuracy" value={pos?.acc ?? ""} />
-      <input type="hidden" name="photo" value={photo} />
-
-      {/* GPS status: mengunci -> akurat (biarkan halaman terbuka, membaik sendiri) */}
+    <div className="space-y-3">
+      {/* GPS status: mengunci -> akurat */}
       {(() => {
         const locking = !!pos && pos.acc > 50;
         const bg = !pos ? "bg-bad" : locking ? "bg-warn" : "bg-ok";
@@ -123,18 +140,24 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
         </button>
       </div>
 
-      {state?.error ? <div className="text-sm text-bad bg-[#fdeaea] rounded-lg px-3 py-2">{state.error}</div> : null}
+      {msg?.type === "err" ? <div className="text-sm text-bad bg-[#fdeaea] rounded-lg px-3 py-2">{msg.text}</div> : null}
+      {msg?.type === "offline" ? <div className="text-sm text-[#1e40af] bg-[#e8f0fe] rounded-lg px-3 py-2">📴 {msg.text}</div> : null}
+
       {pos && !gpsOk ? (
         <div className="text-[11px] text-[#b45309] bg-[#fef4e2] rounded-lg px-3 py-2">
           GPS masih ±{pos.acc} m. Setel izin lokasi ke <b>Tepat/Precise</b>: Chrome ⋮ → (ikon gembok/info situs) → <b>Izin/Location</b> → pilih <b>Precise/Tepat</b>. Lalu dekat jendela/outdoor & tunggu ≤{GPS_MAX_ACC} m. Belum bisa absen.
         </div>
       ) : null}
-      {!canSubmit && (!pos || (photoMandatory && !photo)) ? (
+      {(!gpsOk && !pos) || (photoMandatory && !photo) ? (
         <div className="text-[11px] text-mut text-center">
           Lengkapi: {[!pos ? "GPS" : null, (photoMandatory && !photo) ? "foto" : null].filter(Boolean).join(", ")}
         </div>
       ) : null}
-      <SubmitBtn disabled={!canSubmit} mode={mode} />
-    </form>
+
+      <button type="button" onClick={doSubmit} disabled={!canSubmit}
+        className={`btn w-full justify-center py-3 ${mode === "MASUK" ? "btn-pri" : "bg-ink text-white border-ink"}`}>
+        {submitting ? "Mengirim…" : mode === "MASUK" ? "✔ Absen Masuk" : "✔ Absen Pulang"}
+      </button>
+    </div>
   );
 }
