@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { loginAction } from "./actions";
 
@@ -14,6 +15,7 @@ function SubmitBtn() {
 
 export default function LoginPage() {
   const [state, action] = useFormState(loginAction, { error: "" as string });
+  const [showPw, setShowPw] = useState(false);
   return (
     <div className="min-h-screen relative grid place-items-center px-6 overflow-hidden">
       {/* background image (taruh file di public/login-bg.jpg) */}
@@ -38,7 +40,14 @@ export default function LoginPage() {
           </div>
           <div className="mb-4">
             <label className="lbl">Password</label>
-            <input name="password" type="password" className="inp" placeholder="••••••" />
+            <div className="relative">
+              <input name="password" type={showPw ? "text" : "password"} className="inp pr-12" placeholder="••••••" />
+              <button type="button" onClick={() => setShowPw((v) => !v)}
+                aria-label={showPw ? "Sembunyikan password" : "Lihat password"}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-mut hover:text-ink text-lg px-1">
+                {showPw ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
           {state?.error ? (
             <div className="mb-3 text-sm text-bad bg-[#fdeaea] border border-[#f5c2c2] rounded-lg px-3 py-2">
