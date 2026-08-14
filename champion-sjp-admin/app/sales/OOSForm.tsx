@@ -2,38 +2,51 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
-import { submitCheckin } from "./actions";
+import { useRouter } from "next/navigation";
+import { enqueue } from "@/lib/offlineQueue";
 
 type Lov = { lov_id: number; kode: string; teks: string };
 type Cust = { cust_code: string; cust_name: string; area: string };
 
-function SubmitBtn({ disabled }: { disabled: boolean }) {
-  const { pending } = useFormStatus();
-  return <button type="submit" disabled={disabled || pending} className="btn btn-pri w-full justify-center py-3">{pending ? "Mengirim…" : "✔ Submit Kunjungan OOS"}</button>;
+function uid() {
+  try { return crypto.randomUUID(); } catch { return `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 }
 
 export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: { catatanLov: Lov[]; oosLov: Lov[]; photoMandatory?: boolean }) {
-  const [state, action] = useFormState(submitCheckin as any, {} as any);
+  const router = useRouter();
   const [pos, setPos] = useState<{ lat: number; lng: number; acc: number } | null>(null);
   const [gpsErr, setGpsErr] = useState("");
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [photo, setPhoto] = useState("");
   const [lov, setLov] = useState("");
   const [oos, setOos] = useState("");
+  const [freeText, setFreeText] = useState("");
   const [isNew, setIsNew] = useState(false);
+  // prospek baru
+  const [pNama, setPNama] = useState(""); const [pAlamat, setPAlamat] = useState("");
+  const [pPic, setPPic] = useState(""); const [pHp, setPHp] = useState("");
   // existing customer search
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<Cust[]>([]);
   const [sel, setSel] = useState<Cust | null>(null);
   const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState<{ type: "err" | "offline"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) { setGpsErr("Perangkat tak mendukung GPS."); return; }
-    const id = navigator.geolocation.watchPosition(
-      (p) => setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
-      (e) => setGpsErr(e.message || "Izinkan akses lokasi."),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+    const onOk = (p: GeolocationPosition) => {
+      const cand = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) };
+      setPos((prev) => (!prev || cand.acc <= prev.acc ? cand : prev));
+      setGpsErr("");
+    };
+    const onErr = (e: GeolocationPositionError) => {
+      setGpsErr(e.message || "Izinkan akses lokasi.");
+      navigator.geolocation.getCurrentPosition(onOk, () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
+    };
+    navigator.geolocation.getCurrentPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    const id = navigator.geolocation.watchPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 30000, maximumAge: 30000 });
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
@@ -46,6 +59,18 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
     }, 250);
     return () => clearTimeout(t);
   }, [term, sel, isNew]);
+
+  const GPS_MAX_ACC = 150;
+  const gpsReady = !!pos && pos.acc <= GPS_MAX_ACC;
+
+  function refreshGps() {
+    setGpsErr(""); setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }); setGpsLoading(false); },
+      (e) => { setGpsErr(e.message || "Gagal ambil lokasi."); setGpsLoading(false); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+    );
+  }
 
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; if (!f) return;
@@ -60,21 +85,48 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
     img.src = url;
   }
 
-  const custOk = isNew ? true /* nama divalidasi via required */ : !!sel;
+  const custOk = isNew ? !!pNama.trim() : !!sel;
   const photoOk = photoMandatory ? !!photo : true;
-  const canSubmit = !!pos && custOk && photoOk && !!lov && !!oos;
+  const canSubmit = gpsReady && custOk && photoOk && !!lov && !!oos && !submitting;
+
+  async function doSubmit() {
+    if (!canSubmit) return;
+    setSubmitting(true); setMsg(null);
+    const payload = {
+      client_uid: uid(), client_ts: new Date().toISOString(),
+      is_oos: true, oos_lov_id: oos, catatan_lov_id: lov, free_text: freeText || null,
+      cust_code: !isNew && sel ? sel.cust_code : null,
+      prospek_nama: isNew ? pNama.trim() : "", prospek_alamat: pAlamat, prospek_pic: pPic, prospek_hp: pHp,
+      lat: pos!.lat, lng: pos!.lng, accuracy: pos!.acc, photo,
+    };
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      try { await enqueue("visit", payload); } catch {}
+      setMsg({ type: "offline", text: "Tersimpan offline — akan dikirim otomatis saat online." });
+      setTimeout(() => { router.push("/sales"); router.refresh(); }, 1400);
+      return;
+    }
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const r = await fetch("/api/visit/submit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload), signal: ctrl.signal,
+      });
+      clearTimeout(to);
+      if (r.ok) { router.push("/sales/sukses"); return; }
+      const j = await r.json().catch(() => ({}));
+      setMsg({ type: "err", text: j?.error || "Gagal menyimpan kunjungan." });
+      setSubmitting(false);
+    } catch {
+      clearTimeout(to);
+      try { await enqueue("visit", payload); } catch {}
+      setMsg({ type: "offline", text: "Tersimpan offline — akan dikirim otomatis saat online." });
+      setTimeout(() => { router.push("/sales"); router.refresh(); }, 1400);
+    }
+  }
 
   return (
-    <form action={action} className="space-y-3">
-      <input type="hidden" name="is_oos" value="1" />
-      <input type="hidden" name="oos_lov_id" value={oos} />
-      <input type="hidden" name="catatan_lov_id" value={lov} />
-      <input type="hidden" name="cust_code" value={!isNew && sel ? sel.cust_code : ""} />
-      <input type="hidden" name="lat" value={pos?.lat ?? ""} />
-      <input type="hidden" name="lng" value={pos?.lng ?? ""} />
-      <input type="hidden" name="accuracy" value={pos?.acc ?? ""} />
-      <input type="hidden" name="photo" value={photo} />
-
+    <div className="space-y-3">
       {/* Alasan OOS */}
       <div>
         <label className="lbl">Alasan Luar Jadwal <span className="text-brand">*</span></label>
@@ -93,7 +145,6 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
           <button type="button" onClick={() => setIsNew(false)} className={`px-3 py-1 rounded-full border ${!isNew ? "bg-brand text-white border-brand" : "bg-white border-line"}`}>Terdaftar</button>
           <button type="button" onClick={() => { setIsNew(true); setSel(null); }} className={`px-3 py-1 rounded-full border ${isNew ? "bg-brand text-white border-brand" : "bg-white border-line"}`}>Baru (prospek)</button>
         </div>
-
         {!isNew ? (
           <div className="relative">
             <input className="inp" placeholder="Ketik nama customer…" value={sel ? `${sel.cust_name} (${sel.cust_code})` : term}
@@ -111,27 +162,50 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
           </div>
         ) : (
           <div className="space-y-2">
-            <input name="prospek_nama" className="inp" placeholder="Nama usaha/toko *" required={isNew} />
-            <input name="prospek_alamat" className="inp" placeholder="Alamat" />
-            <input name="prospek_pic" className="inp" placeholder="Nama PIC" />
-            <input name="prospek_hp" className="inp" placeholder="No. HP" />
+            <input value={pNama} onChange={(e) => setPNama(e.target.value)} className="inp" placeholder="Nama usaha/toko *" />
+            <input value={pAlamat} onChange={(e) => setPAlamat(e.target.value)} className="inp" placeholder="Alamat" />
+            <input value={pPic} onChange={(e) => setPPic(e.target.value)} className="inp" placeholder="Nama PIC" />
+            <input value={pHp} onChange={(e) => setPHp(e.target.value)} className="inp" placeholder="No. HP" />
             <div className="text-[11px] text-mut">Prospek disimpan lokal (bukan master). Titik GPS check-in jadi lokasinya.</div>
           </div>
         )}
       </div>
 
-      {/* GPS */}
-      <div className={`rounded-xl p-3 text-white ${pos ? "bg-ok" : "bg-bad"}`}>
-        <div className="text-sm font-bold">{pos ? "Lokasi terbaca" : (gpsErr || "Mengambil lokasi…")}</div>
-        {pos ? <div className="text-[11px] opacity-90">akurasi ±{pos.acc} m · titik ini jadi lokasi kunjungan</div> : null}
-      </div>
+      {/* GPS: mengunci -> akurat */}
+      {(() => {
+        const locking = !!pos && pos.acc > 50;
+        const bg = !pos ? "bg-bad" : locking ? "bg-warn" : "bg-ok";
+        const icon = !pos ? "⛔" : locking ? "🛰️" : "📍";
+        return (
+          <div className={`rounded-xl p-3 text-white ${bg}`}>
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">{icon}</div>
+              <div className="flex-1">
+                {!pos ? <div className="font-bold text-sm">{gpsErr || "Mengambil lokasi…"}</div>
+                  : locking ? <><div className="font-bold text-sm">Mengunci GPS… ±{pos.acc} m</div><div className="text-[11px] opacity-90">Tunggu beberapa detik — akurasi membaik sendiri.</div></>
+                  : <><div className="font-bold text-sm">Lokasi akurat ±{pos.acc} m</div><div className="text-[11px] opacity-90">Titik ini jadi lokasi kunjungan.</div></>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      <button type="button" onClick={refreshGps} disabled={gpsLoading}
+        className="text-xs text-brand underline inline-flex items-center gap-1.5 disabled:opacity-60">
+        {gpsLoading ? (<><span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin inline-block" /> Mengambil lokasi…</>) : "🔄 Muat ulang GPS"}
+      </button>
+      {pos && !gpsReady ? (
+        <div className="text-[11px] text-[#b45309] bg-[#fef4e2] rounded-lg px-3 py-2">
+          GPS masih ±{pos.acc} m. Setel izin lokasi ke <b>Tepat/Precise</b> (Chrome ⋮ → info situs → Location). Dekat jendela/outdoor & tunggu ≤{GPS_MAX_ACC} m. Belum bisa check-in.
+        </div>
+      ) : null}
 
       {/* Foto */}
       <div>
         <label className="lbl">Foto Selfie {photoMandatory ? <span className="text-brand">*</span> : <span className="text-mut font-normal">(opsional)</span>}</label>
         <input ref={fileRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onPhoto} />
-        <button type="button" onClick={() => fileRef.current?.click()} className={`w-full rounded-xl border-2 border-dashed grid place-items-center h-40 overflow-hidden ${photo ? "border-ok" : "border-line bg-white"}`}>
-          {photo ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={photo} alt="" className="w-full h-full object-cover" />) : <div className="text-center text-mut"><div className="text-3xl">📷</div><div className="text-xs">Ambil foto</div></div>}
+        <button type="button" onClick={() => fileRef.current?.click()} className={`w-full rounded-xl border-2 border-dashed grid place-items-center min-h-[11rem] p-1 overflow-hidden ${photo ? "border-ok bg-[#f2f2f2]" : "border-line bg-white"}`}>
+          {photo ? <img src={photo} alt="" className="w-full max-h-96 object-contain rounded-lg" /> : <div className="text-center text-mut py-10"><div className="text-3xl">📷</div><div className="text-xs">Ambil foto</div></div>}
         </button>
       </div>
 
@@ -144,10 +218,14 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
           ))}
         </div>
       </div>
-      <textarea name="free_text" rows={2} className="inp" placeholder="Catatan tambahan…" />
+      <textarea value={freeText} onChange={(e) => setFreeText(e.target.value)} rows={2} className="inp" placeholder="Catatan tambahan…" />
 
-      {state?.error ? <div className="text-sm text-bad bg-[#fdeaea] rounded-lg px-3 py-2">{state.error}</div> : null}
-      <SubmitBtn disabled={!canSubmit} />
-    </form>
+      {msg?.type === "err" ? <div className="text-sm text-bad bg-[#fdeaea] rounded-lg px-3 py-2">{msg.text}</div> : null}
+      {msg?.type === "offline" ? <div className="text-sm text-[#1e40af] bg-[#e8f0fe] rounded-lg px-3 py-2">📴 {msg.text}</div> : null}
+
+      <button type="button" onClick={doSubmit} disabled={!canSubmit} className="btn btn-pri w-full justify-center py-3">
+        {submitting ? "Mengirim…" : "✔ Submit Kunjungan OOS"}
+      </button>
+    </div>
   );
 }

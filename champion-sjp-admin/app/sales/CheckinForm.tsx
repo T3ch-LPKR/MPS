@@ -2,19 +2,14 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
-import { submitCheckin } from "./actions";
+import { useRouter } from "next/navigation";
 import { haversineMeters, GEOFENCE_M } from "@/lib/geo";
+import { enqueue } from "@/lib/offlineQueue";
 
 type Lov = { lov_id: number; kode: string; teks: string };
 
-function SubmitBtn({ disabled }: { disabled: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={disabled || pending} className="btn btn-pri w-full justify-center py-3">
-      {pending ? "Mengirim…" : "✔ Submit Kunjungan"}
-    </button>
-  );
+function uid() {
+  try { return crypto.randomUUID(); } catch { return `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 }
 
 export default function CheckinForm({
@@ -23,20 +18,22 @@ export default function CheckinForm({
   schedId?: number | null; custCode: string; custName?: string;
   custLat?: number | null; custLng?: number | null; catatanLov: Lov[]; photoMandatory?: boolean;
 }) {
-  const [state, action] = useFormState(submitCheckin as any, {} as any);
+  const router = useRouter();
   const [pos, setPos] = useState<{ lat: number; lng: number; acc: number } | null>(null);
   const [gpsErr, setGpsErr] = useState("");
   const [gpsLoading, setGpsLoading] = useState(false);
   const [photo, setPhoto] = useState<string>("");
   const [lov, setLov] = useState<string>("");
+  const [freeText, setFreeText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState<{ type: "err" | "offline"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ambil lokasi
   useEffect(() => {
     if (!navigator.geolocation) { setGpsErr("Perangkat tak mendukung GPS."); return; }
     const onOk = (p: GeolocationPosition) => {
       const cand = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) };
-      setPos((prev) => (!prev || cand.acc <= prev.acc ? cand : prev)); // simpan yang paling akurat
+      setPos((prev) => (!prev || cand.acc <= prev.acc ? cand : prev));
       setGpsErr("");
     };
     const onErr = (e: GeolocationPositionError) => {
@@ -48,11 +45,10 @@ export default function CheckinForm({
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
-  const GPS_MAX_ACC = 150; // tolak titik kasar (izin "Approximate"/jaringan ±ribuan meter)
+  const GPS_MAX_ACC = 150;
   const hasCustGeo = custLat != null && custLng != null;
   const dist = pos && hasCustGeo ? haversineMeters(pos.lat, pos.lng, Number(custLat), Number(custLng)) : null;
-  const inRadius = dist == null ? true : dist <= GEOFENCE_M; // tanpa geo -> titik pertama
-  // Butuh GPS yang cukup akurat. Di luar radius tetap boleh submit (masuk approval admin).
+  const inRadius = dist == null ? true : dist <= GEOFENCE_M;
   const gpsReady = !!pos && pos.acc <= GPS_MAX_ACC;
 
   function refreshGps() {
@@ -81,18 +77,46 @@ export default function CheckinForm({
   }
 
   const photoOk = photoMandatory ? !!photo : true;
-  const canSubmit = gpsReady && photoOk && !!lov;
+  const canSubmit = gpsReady && photoOk && !!lov && !submitting;
+
+  async function doSubmit() {
+    if (!gpsReady || !photoOk || !lov || submitting) return;
+    setSubmitting(true); setMsg(null);
+    const payload = {
+      client_uid: uid(), client_ts: new Date().toISOString(),
+      sched_id: schedId ?? null, cust_code: custCode, is_oos: false,
+      catatan_lov_id: lov, free_text: freeText || null,
+      lat: pos!.lat, lng: pos!.lng, accuracy: pos!.acc, photo,
+    };
+
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      try { await enqueue("visit", payload); } catch {}
+      setMsg({ type: "offline", text: "Tersimpan offline — akan dikirim otomatis saat online." });
+      setTimeout(() => { router.push("/sales"); router.refresh(); }, 1400);
+      return;
+    }
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const r = await fetch("/api/visit/submit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload), signal: ctrl.signal,
+      });
+      clearTimeout(to);
+      if (r.ok) { router.push("/sales/sukses"); return; }
+      const j = await r.json().catch(() => ({}));
+      setMsg({ type: "err", text: j?.error || "Gagal menyimpan kunjungan." });
+      setSubmitting(false);
+    } catch {
+      clearTimeout(to);
+      try { await enqueue("visit", payload); } catch {}
+      setMsg({ type: "offline", text: "Tersimpan offline — akan dikirim otomatis saat online." });
+      setTimeout(() => { router.push("/sales"); router.refresh(); }, 1400);
+    }
+  }
 
   return (
-    <form action={action} className="space-y-3">
-      <input type="hidden" name="sched_id" value={schedId ?? ""} />
-      <input type="hidden" name="cust_code" value={custCode} />
-      <input type="hidden" name="lat" value={pos?.lat ?? ""} />
-      <input type="hidden" name="lng" value={pos?.lng ?? ""} />
-      <input type="hidden" name="accuracy" value={pos?.acc ?? ""} />
-      <input type="hidden" name="photo" value={photo} />
-      <input type="hidden" name="catatan_lov_id" value={lov} />
-
+    <div className="space-y-3">
       {/* GPS status (non-blocking: di luar radius = kuning, tetap bisa submit) */}
       <div className={`rounded-xl p-3 text-white ${!pos ? "bg-bad" : (!hasCustGeo || inRadius) ? "bg-ok" : "bg-warn"}`}>
         <div className="flex items-center gap-3">
@@ -134,7 +158,6 @@ export default function CheckinForm({
         <button type="button" onClick={() => fileRef.current?.click()}
           className={`w-full rounded-xl border-2 border-dashed grid place-items-center min-h-[11rem] p-1 overflow-hidden ${photo ? "border-ok bg-[#f2f2f2]" : "border-line bg-white"}`}>
           {photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={photo} alt="selfie" className="w-full max-h-96 object-contain rounded-lg" />
           ) : (
             <div className="text-center text-mut py-10"><div className="text-3xl">📷</div><div className="text-xs mt-1">Ketuk untuk ambil foto</div></div>
@@ -157,16 +180,21 @@ export default function CheckinForm({
 
       <div>
         <label className="lbl">Catatan Tambahan</label>
-        <textarea name="free_text" rows={2} className="inp" placeholder="mis. reorder Z9 5 dus, janji bayar AR…" />
+        <textarea value={freeText} onChange={(e) => setFreeText(e.target.value)} rows={2} className="inp" placeholder="mis. reorder Z9 5 dus, janji bayar AR…" />
       </div>
 
-      {state?.error ? <div className="text-sm text-bad bg-[#fdeaea] rounded-lg px-3 py-2">{state.error}</div> : null}
-      {!canSubmit ? (
+      {msg?.type === "err" ? <div className="text-sm text-bad bg-[#fdeaea] rounded-lg px-3 py-2">{msg.text}</div> : null}
+      {msg?.type === "offline" ? <div className="text-sm text-[#1e40af] bg-[#e8f0fe] rounded-lg px-3 py-2">📴 {msg.text}</div> : null}
+
+      {!canSubmit && !submitting ? (
         <div className="text-[11px] text-mut text-center">
           Lengkapi: {[!gpsReady ? "GPS" : null, (photoMandatory && !photo) ? "foto" : null, !lov ? "catatan" : null].filter(Boolean).join(", ")}
         </div>
       ) : null}
-      <SubmitBtn disabled={!canSubmit} />
-    </form>
+      <button type="button" onClick={doSubmit} disabled={!canSubmit}
+        className="btn btn-pri w-full justify-center py-3">
+        {submitting ? "Mengirim…" : "✔ Submit Kunjungan"}
+      </button>
+    </div>
   );
 }

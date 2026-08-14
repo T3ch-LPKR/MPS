@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { enqueue } from "@/lib/attendanceQueue";
+import { enqueue } from "@/lib/offlineQueue";
 
 export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "PULANG"; photoMandatory: boolean }) {
   const router = useRouter();
@@ -68,7 +68,7 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
 
     // offline langsung -> simpan
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      try { await enqueue(payload); } catch {}
+      try { await enqueue("absen", payload); } catch {}
       setMsg({ type: "offline", text: "Tersimpan offline — akan dikirim otomatis saat online." });
       setTimeout(() => { router.push("/sales/absen"); router.refresh(); }, 1400);
       return;
@@ -89,7 +89,7 @@ export default function AbsenForm({ mode, photoMandatory }: { mode: "MASUK" | "P
     } catch {
       clearTimeout(to);
       // jaringan gagal/timeout -> simpan offline
-      try { await enqueue(payload); } catch {}
+      try { await enqueue("absen", payload); } catch {}
       setMsg({ type: "offline", text: "Tersimpan offline — akan dikirim otomatis saat online." });
       setTimeout(() => { router.push("/sales/absen"); router.refresh(); }, 1400);
     }

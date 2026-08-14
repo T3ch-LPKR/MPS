@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { q1 } from "@/lib/db";
 import { logoutAction } from "../(admin)/actions";
 import RefreshButton from "./RefreshButton";
-import AttendanceSync from "@/components/AttendanceSync";
+import OfflineSync from "@/components/OfflineSync";
 
 export default async function SalesLayout({ children }: { children: React.ReactNode }) {
   const user = await getSession();
@@ -48,7 +48,7 @@ export default async function SalesLayout({ children }: { children: React.ReactN
         </div>
 
         <div className="flex-1 overflow-y-auto pb-16">{children}</div>
-        <AttendanceSync />
+        <OfflineSync />
 
         {/* bottom nav */}
         <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[460px] bg-white border-t border-line flex">
