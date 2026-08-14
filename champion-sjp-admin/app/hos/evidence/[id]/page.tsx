@@ -11,7 +11,7 @@ export default async function Evidence({ params }: { params: { id: string } }) {
            COALESCE(c.cust_name,p.nama_usaha) nama, c.address,
            l.teks catatan, ol.teks oos_alasan,
            ar.ar_outstanding, lo.last_order_date::text lo_tgl, lo.last_order_amt,
-           (v.photo IS NOT NULL) ada_foto
+           (v.photo IS NOT NULL OR v.photo_path IS NOT NULL) ada_foto
     FROM sjp_visit_log v
     LEFT JOIN sjp_employee e ON e.emp_id=v.emp_id
     LEFT JOIN sjp_customer c ON c.cust_code=v.cust_code

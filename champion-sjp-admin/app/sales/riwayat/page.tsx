@@ -11,7 +11,7 @@ export default async function Riwayat() {
            COALESCE(c.cust_name, p.nama_usaha, v.cust_code, v.prospek_id) AS nama,
            v.is_oos, v.gps_valid, v.gps_distance_m, v.free_text,
            l.teks AS catatan, ol.teks AS oos_alasan,
-           (v.photo IS NOT NULL) AS ada_foto
+           (v.photo IS NOT NULL OR v.photo_path IS NOT NULL) AS ada_foto
     FROM sjp_visit_log v
     LEFT JOIN sjp_customer c ON c.cust_code=v.cust_code
     LEFT JOIN sjp_prospect p ON p.prospek_id=v.prospek_id
