@@ -59,7 +59,7 @@ export default async function SalesHome() {
     LEFT JOIN sjp_customer_ar ar ON ar.cust_code=s.cust_code
     LEFT JOIN sjp_visit_log v ON v.sched_id = s.sched_id
     WHERE s.emp_id = $1 AND s.tgl = CURRENT_DATE
-    ORDER BY s.jam_target NULLS LAST, c.cust_name`, [emp]);
+    ORDER BY (v.visit_id IS NOT NULL OR s.status='DONE') ASC, c.cust_name ASC`, [emp]);
   } catch {
     return <div className="p-4"><div className="card p-4 text-sm text-mut">Gagal memuat data. Coba tarik untuk segarkan atau buka lagi.</div></div>;
   }

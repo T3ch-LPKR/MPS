@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { q, q1 } from "@/lib/db";
 import AssignForm from "./AssignForm";
+import AssignCalendar from "./AssignCalendar";
 import { deleteAssignment } from "./actions";
 import SubmitButton from "@/components/SubmitButton";
 
@@ -29,7 +30,7 @@ function Tabs({ tab }: { tab: string }) {
 }
 
 export default async function MasterPage({ searchParams }: {
-  searchParams: { tab?: string; q?: string; edit?: string; fq?: string; ffrek?: string; femp?: string; ap?: string };
+  searchParams: { tab?: string; q?: string; edit?: string; fq?: string; ffrek?: string; femp?: string; ap?: string; cal_emp?: string; cal_ym?: string };
 }) {
   const tab = searchParams.tab || "assign";
   const salesmen = await q<any>(`SELECT emp_id, emp_name FROM sjp_employee WHERE is_salesman ORDER BY emp_name`);
@@ -50,8 +51,15 @@ export default async function MasterPage({ searchParams }: {
 
       {tab === "assign" && (
         <div className="grid grid-cols-[1fr_1.7fr] gap-4 max-[1000px]:grid-cols-1">
-          <div className="card p-5 self-start">
-            <AssignForm key={initial?.assign_id ?? "new"} salesmen={salesmen} initial={initial} />
+          <div className="self-start">
+            <div className="card p-5">
+              <AssignForm key={initial?.assign_id ?? "new"} salesmen={salesmen} initial={initial} />
+            </div>
+            <AssignCalendar
+              emp={searchParams.cal_emp ?? initial?.emp_id ?? ""}
+              ym={searchParams.cal_ym ?? ""}
+              salesmen={salesmen}
+            />
           </div>
           <div className="card p-5">
             <div className="font-bold mb-3">Daftar Assignment</div>

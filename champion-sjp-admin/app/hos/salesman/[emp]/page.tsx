@@ -18,7 +18,7 @@ export default async function Drill({ params, searchParams }: { params: { emp: s
            (v.visit_id IS NOT NULL) AS visited, v.gps_valid, to_char(v.checkin_dt,'HH24:MI') jam_visit
     FROM sjp_schedule s JOIN sjp_customer c ON c.cust_code=s.cust_code
     LEFT JOIN sjp_visit_log v ON v.sched_id=s.sched_id
-    WHERE s.emp_id=$1 AND s.tgl=$2 ORDER BY s.jam_target NULLS LAST, c.cust_name`, [emp, d]);
+    WHERE s.emp_id=$1 AND s.tgl=$2 ORDER BY (v.visit_id IS NOT NULL) ASC, c.cust_name ASC`, [emp, d]);
 
   const oos = await q<any>(`
     SELECT v.visit_id, COALESCE(c.cust_name,p.nama_usaha,v.cust_code,v.prospek_id) nama,
