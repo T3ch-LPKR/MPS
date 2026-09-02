@@ -18,9 +18,15 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
   const [gpsErr, setGpsErr] = useState("");
   const [gpsLoading, setGpsLoading] = useState(false);
   const [photo, setPhoto] = useState("");
-  const [lov, setLov] = useState("");
-  const [oos, setOos] = useState("");
+  const [lovIds, setLovIds] = useState<string[]>([]);
+  const [oosIds, setOosIds] = useState<string[]>([]);
+  const toggle = (set: React.Dispatch<React.SetStateAction<string[]>>) => (id: string) =>
+    set((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
+  const toggleLov = toggle(setLovIds);
+  const toggleOos = toggle(setOosIds);
   const [freeText, setFreeText] = useState("");
+  const [arCollect, setArCollect] = useState<"" | "FULL" | "PARTIAL">("");
+  const [arAmount, setArAmount] = useState("");
   const [isNew, setIsNew] = useState(false);
   // prospek baru
   const [pNama, setPNama] = useState(""); const [pAlamat, setPAlamat] = useState("");
@@ -87,14 +93,18 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
 
   const custOk = isNew ? !!pNama.trim() : !!sel;
   const photoOk = photoMandatory ? !!photo : true;
-  const canSubmit = gpsReady && custOk && photoOk && !!lov && !!oos && !submitting;
+  const canCollectAr = !isNew && !!sel; // hanya customer terdaftar yang punya AR
+  const arPartialOk = arCollect !== "PARTIAL" || Number(arAmount) > 0;
+  const canSubmit = gpsReady && custOk && photoOk && lovIds.length > 0 && oosIds.length > 0 && arPartialOk && !submitting;
 
   async function doSubmit() {
     if (!canSubmit) return;
     setSubmitting(true); setMsg(null);
     const payload = {
       client_uid: uid(), client_ts: new Date().toISOString(),
-      is_oos: true, oos_lov_id: oos, catatan_lov_id: lov, free_text: freeText || null,
+      is_oos: true, oos_lov_ids: oosIds, catatan_lov_ids: lovIds, free_text: freeText || null,
+      ar_collect: canCollectAr && arCollect ? arCollect : null,
+      ar_amount: canCollectAr && arCollect === "PARTIAL" ? Number(arAmount) : null,
       cust_code: !isNew && sel ? sel.cust_code : null,
       prospek_nama: isNew ? pNama.trim() : "", prospek_alamat: pAlamat, prospek_pic: pPic, prospek_hp: pHp,
       lat: pos!.lat, lng: pos!.lng, accuracy: pos!.acc, photo,
@@ -129,12 +139,15 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
     <div className="space-y-3">
       {/* Alasan OOS */}
       <div>
-        <label className="lbl">Alasan Luar Jadwal <span className="text-brand">*</span></label>
+        <label className="lbl">Alasan Luar Jadwal <span className="text-brand">*</span> <span className="text-mut font-normal text-[11px]">(bisa pilih &gt;1)</span></label>
         <div className="flex flex-wrap gap-2">
-          {oosLov.map((l) => (
-            <button type="button" key={l.lov_id} onClick={() => setOos(String(l.lov_id))}
-              className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${String(l.lov_id) === oos ? "bg-info text-white border-info" : "bg-white border-line"}`}>{l.teks}</button>
-          ))}
+          {oosLov.map((l) => {
+            const on = oosIds.includes(String(l.lov_id));
+            return (
+              <button type="button" key={l.lov_id} onClick={() => toggleOos(String(l.lov_id))}
+                className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${on ? "bg-info text-white border-info" : "bg-white border-line"}`}>{on ? "✓ " : ""}{l.teks}</button>
+            );
+          })}
         </div>
       </div>
 
@@ -211,13 +224,38 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
 
       {/* Catatan */}
       <div>
-        <label className="lbl">Catatan Kunjungan <span className="text-brand">*</span></label>
+        <label className="lbl">Catatan Kunjungan <span className="text-brand">*</span> <span className="text-mut font-normal text-[11px]">(bisa pilih &gt;1)</span></label>
         <div className="flex flex-wrap gap-2">
-          {catatanLov.map((l) => (
-            <button type="button" key={l.lov_id} onClick={() => setLov(String(l.lov_id))} className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${String(l.lov_id) === lov ? "bg-brand text-white border-brand" : "bg-white border-line"}`}>{l.teks}</button>
-          ))}
+          {catatanLov.map((l) => {
+            const on = lovIds.includes(String(l.lov_id));
+            return (
+              <button type="button" key={l.lov_id} onClick={() => toggleLov(String(l.lov_id))} className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${on ? "bg-brand text-white border-brand" : "bg-white border-line"}`}>{on ? "✓ " : ""}{l.teks}</button>
+            );
+          })}
         </div>
       </div>
+      {/* Penagihan AR (opsional) — customer terdaftar */}
+      {canCollectAr ? (
+        <div>
+          <label className="lbl">Penagihan AR <span className="text-mut font-normal text-[11px]">(opsional)</span></label>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setArCollect((v) => (v === "FULL" ? "" : "FULL")); setArAmount(""); }}
+              className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${arCollect === "FULL" ? "bg-ok text-white border-ok" : "bg-white border-line"}`}>
+              {arCollect === "FULL" ? "✓ " : ""}Lunas (Full)
+            </button>
+            <button type="button" onClick={() => setArCollect((v) => (v === "PARTIAL" ? "" : "PARTIAL"))}
+              className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${arCollect === "PARTIAL" ? "bg-warn text-white border-warn" : "bg-white border-line"}`}>
+              {arCollect === "PARTIAL" ? "✓ " : ""}Bayar Sebagian
+            </button>
+          </div>
+          {arCollect === "FULL" ? <div className="text-[11px] text-ok mt-1">Tercatat lunas sesuai outstanding customer.</div> : null}
+          {arCollect === "PARTIAL" ? (
+            <input type="number" inputMode="numeric" min={1} value={arAmount} onChange={(e) => setArAmount(e.target.value)}
+              className="inp mt-2" placeholder="Nominal dibayar (Rp)" />
+          ) : null}
+        </div>
+      ) : null}
+
       <textarea value={freeText} onChange={(e) => setFreeText(e.target.value)} rows={2} className="inp" placeholder="Catatan tambahan…" />
 
       {msg?.type === "err" ? <div className="text-sm text-bad bg-[#fdeaea] rounded-lg px-3 py-2">{msg.text}</div> : null}

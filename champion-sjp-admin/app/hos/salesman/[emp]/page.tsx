@@ -22,7 +22,8 @@ export default async function Drill({ params, searchParams }: { params: { emp: s
 
   const oos = await q<any>(`
     SELECT v.visit_id, COALESCE(c.cust_name,p.nama_usaha,v.cust_code,v.prospek_id) nama,
-           to_char(v.checkin_dt,'HH24:MI') jam, ol.teks alasan
+           to_char(v.checkin_dt,'HH24:MI') jam,
+           COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.oos_lov_ids)), ol.teks) alasan
     FROM sjp_visit_log v
     LEFT JOIN sjp_customer c ON c.cust_code=v.cust_code
     LEFT JOIN sjp_prospect p ON p.prospek_id=v.prospek_id

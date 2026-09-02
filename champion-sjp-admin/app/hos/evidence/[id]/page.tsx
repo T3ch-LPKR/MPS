@@ -9,7 +9,8 @@ export default async function Evidence({ params }: { params: { id: string } }) {
   const v = await q1<any>(`
     SELECT v.*, to_char(v.checkin_dt,'DD Mon YYYY HH24:MI') waktu, e.emp_name,
            COALESCE(c.cust_name,p.nama_usaha) nama, c.address,
-           l.teks catatan, ol.teks oos_alasan,
+           COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.catatan_lov_ids)), l.teks) catatan,
+           COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.oos_lov_ids)), ol.teks) oos_alasan,
            ar.ar_outstanding, lo.last_order_date::text lo_tgl, lo.last_order_amt,
            (v.photo IS NOT NULL OR v.photo_path IS NOT NULL) ada_foto
     FROM sjp_visit_log v
@@ -41,6 +42,7 @@ export default async function Evidence({ params }: { params: { id: string } }) {
         <Row k="GPS" val={<span className={v.gps_valid ? "text-ok" : "text-bad"}>{v.gps_valid ? "Valid" : "Di luar radius"}{v.gps_distance_m != null ? ` · ${v.gps_distance_m} m` : ""}{v.gps_accuracy ? ` (±${Math.round(v.gps_accuracy)}m)` : ""}</span>} />
         {v.is_oos ? <Row k="OOS" val={<span className="pill p-info">{v.oos_alasan || "Luar jadwal"}</span>} /> : null}
         <Row k="Catatan" val={v.catatan || "-"} />
+        {v.ar_collect ? <Row k="Penagihan AR" val={<span className="text-ok font-semibold">{v.ar_collect === "FULL" ? "Lunas" : "Sebagian"} · {rp(v.ar_amount)}</span>} /> : null}
         {v.free_text ? <Row k="Free text" val={v.free_text} /> : null}
       </div>
 

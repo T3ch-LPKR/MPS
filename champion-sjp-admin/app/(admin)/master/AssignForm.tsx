@@ -1,7 +1,8 @@
 "use client";
 
 import { useFormState } from "react-dom";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { addAssignment } from "./actions";
 import CustomerSearch from "./CustomerSearch";
@@ -29,6 +30,17 @@ export default function AssignForm({
   const [state, action] = useFormState(addAssignment as any, {} as any);
   const editing = !!initial;
   const [frekuensi, setFrekuensi] = useState(initial?.frekuensi || "W");
+  const router = useRouter();
+  const doneRef = useRef<any>(null);
+
+  // setelah sukses simpan → arahkan kalender ke salesman itu & muat ulang data
+  useEffect(() => {
+    if (state?.ok && state.emp_id && doneRef.current !== state) {
+      doneRef.current = state;
+      router.push(`/master?tab=assign&cal_emp=${encodeURIComponent(state.emp_id)}`);
+      router.refresh();
+    }
+  }, [state, router]);
 
   return (
     <form action={action} className="space-y-3">

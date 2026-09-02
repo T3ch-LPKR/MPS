@@ -38,7 +38,7 @@ export async function addAssignment(_prev: any, formData: FormData) {
     return { error: "Gagal menyimpan." };
   }
   revalidatePath("/master");
-  return { ok: true, edited: !!assign_id };
+  return { ok: true, edited: !!assign_id, emp_id };
 }
 
 export async function deleteAssignment(formData: FormData) {

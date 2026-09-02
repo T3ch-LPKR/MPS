@@ -9,8 +9,9 @@ export default async function Riwayat() {
   const rows = emp ? await q<any>(`
     SELECT v.visit_id, v.tgl::text tgl, to_char(v.checkin_dt,'HH24:MI') jam,
            COALESCE(c.cust_name, p.nama_usaha, v.cust_code, v.prospek_id) AS nama,
-           v.is_oos, v.gps_valid, v.gps_distance_m, v.free_text,
-           l.teks AS catatan, ol.teks AS oos_alasan,
+           v.is_oos, v.gps_valid, v.gps_distance_m, v.free_text, v.ar_collect, v.ar_amount,
+           COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.catatan_lov_ids)), l.teks) AS catatan,
+           COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.oos_lov_ids)), ol.teks) AS oos_alasan,
            (v.photo IS NOT NULL OR v.photo_path IS NOT NULL) AS ada_foto
     FROM sjp_visit_log v
     LEFT JOIN sjp_customer c ON c.cust_code=v.cust_code
@@ -43,6 +44,11 @@ export default async function Riwayat() {
             <span className="font-medium">{r.catatan}</span>
             {r.free_text ? <span className="text-mut"> — {r.free_text}</span> : null}
           </div>
+          {r.ar_collect ? (
+            <div className="mt-1">
+              <span className="pill p-ok">💳 AR {r.ar_collect === "FULL" ? "Lunas" : "Sebagian"} · Rp {Number(r.ar_amount || 0).toLocaleString("id")}</span>
+            </div>
+          ) : null}
         </div>
       ))}
     </div>

@@ -74,8 +74,9 @@ export default async function SalesHome() {
       (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3) AS visit,
       (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND is_effective_call) AS eff,
       (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND is_oos) AS oos,
-      (SELECT count(*) FROM sjp_visit_log v JOIN sjp_lov l ON l.lov_id=v.catatan_lov_id
-         WHERE v.emp_id=$1 AND v.tgl BETWEEN $2 AND $3 AND l.kode='LOV-07') AS ar_follow
+      (SELECT count(*) FROM sjp_visit_log v
+         WHERE v.emp_id=$1 AND v.tgl BETWEEN $2 AND $3
+           AND EXISTS (SELECT 1 FROM sjp_lov l WHERE l.lov_id = ANY(COALESCE(v.catatan_lov_ids, ARRAY[v.catatan_lov_id])) AND l.kode='LOV-07')) AS ar_follow
     `, [emp, first, last]);
   } catch { ach = null; }
 

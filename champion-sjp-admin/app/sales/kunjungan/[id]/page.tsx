@@ -149,6 +149,7 @@ export default async function KunjunganDetail({ params }: { params: { id: string
             custLng={sched.lng != null ? Number(sched.lng) : null}
             catatanLov={lov}
             photoMandatory={photoMandatory}
+            arOutstanding={ar?.ar_outstanding != null ? Number(ar.ar_outstanding) : null}
           />
         )}
       </div>

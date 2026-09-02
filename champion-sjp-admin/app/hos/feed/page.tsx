@@ -7,7 +7,9 @@ export default async function Feed() {
   const rows = await q<any>(`
     SELECT v.visit_id, to_char(v.checkin_dt,'DD Mon HH24:MI') waktu, e.emp_name,
            COALESCE(c.cust_name,p.nama_usaha,v.cust_code,v.prospek_id) nama,
-           v.is_oos, v.gps_valid, v.gps_distance_m, l.teks catatan, (v.photo IS NOT NULL OR v.photo_path IS NOT NULL) ada_foto
+           v.is_oos, v.gps_valid, v.gps_distance_m,
+           COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.catatan_lov_ids)), l.teks) catatan,
+           (v.photo IS NOT NULL OR v.photo_path IS NOT NULL) ada_foto
     FROM sjp_visit_log v
     LEFT JOIN sjp_employee e ON e.emp_id=v.emp_id
     LEFT JOIN sjp_customer c ON c.cust_code=v.cust_code

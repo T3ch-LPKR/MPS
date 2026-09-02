@@ -36,9 +36,18 @@ export async function POST(req: NextRequest) {
   const client_ts = String(b?.client_ts || new Date().toISOString());
   const sched_id = b?.sched_id ? Number(b.sched_id) : null;
   const is_oos = b?.is_oos === true || b?.is_oos === "1";
-  const oos_lov_id = b?.oos_lov_id ? Number(b.oos_lov_id) : null;
-  const catatan_lov_id = b?.catatan_lov_id ? Number(b.catatan_lov_id) : null;
+  // multi-reason: terima array; fallback ke nilai tunggal lama
+  const toIds = (arr: any, single: any): number[] => {
+    const src = Array.isArray(arr) ? arr : single != null && single !== "" ? [single] : [];
+    return Array.from(new Set(src.map((x: any) => Number(x)).filter((x: number) => Number.isFinite(x) && x > 0)));
+  };
+  const catatan_ids = toIds(b?.catatan_lov_ids, b?.catatan_lov_id);
+  const oos_ids = toIds(b?.oos_lov_ids, b?.oos_lov_id);
+  const catatan_lov_id = catatan_ids[0] ?? null; // legacy (elemen pertama)
+  const oos_lov_id = oos_ids[0] ?? null;
   const free_text = String(b?.free_text || "").trim() || null;
+  const ar_collect = ["FULL", "PARTIAL"].includes(String(b?.ar_collect)) ? String(b.ar_collect) : null;
+  let ar_amount = n(b?.ar_amount);
   const lat = n(b?.lat), lng = n(b?.lng), accuracy = n(b?.accuracy);
   const photoBuf = decodePhoto(String(b?.photo || ""));
   let cust_code = String(b?.cust_code || "").trim() || null;
@@ -48,8 +57,8 @@ export async function POST(req: NextRequest) {
   const photoMandatory = await getBoolSetting("photo_mandatory", true);
   if (lat === null || lng === null) return err("Lokasi GPS belum terbaca.");
   if (photoMandatory && !photoBuf) return err("Foto selfie wajib.");
-  if (!catatan_lov_id) return err("Pilih catatan kunjungan.");
-  if (is_oos && !oos_lov_id) return err("Pilih alasan luar jadwal (OOS).");
+  if (catatan_ids.length === 0) return err("Pilih catatan kunjungan.");
+  if (is_oos && oos_ids.length === 0) return err("Pilih alasan luar jadwal (OOS).");
 
   // Dedup: kalau client_uid ini sudah tercatat -> anggap sukses (replay), jangan dobel.
   if (client_uid) {
@@ -70,6 +79,14 @@ export async function POST(req: NextRequest) {
   }
   if (!cust_code && !prospek_id) return err("Customer belum dipilih.");
 
+  // Penagihan AR: FULL → pakai outstanding master bila nominal tak dikirim; PARTIAL → wajib nominal > 0.
+  if (ar_collect === "PARTIAL" && !(ar_amount && ar_amount > 0)) return err("Isi nominal pembayaran sebagian.");
+  if (ar_collect === "FULL" && (ar_amount == null || ar_amount <= 0) && cust_code) {
+    const arRow = await q1<{ ar_outstanding: number }>(`SELECT ar_outstanding FROM sjp_customer_ar WHERE cust_code=$1`, [cust_code]);
+    ar_amount = arRow?.ar_outstanding != null ? Number(arRow.ar_outstanding) : null;
+  }
+  if (!ar_collect) ar_amount = null;
+
   // Geofence NON-BLOCKING (+ patokan first-checkin)
   let gps_distance: number | null = null;
   let gps_valid = true;
@@ -89,19 +106,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const lov = await q1<{ kode: string }>(`SELECT kode FROM sjp_lov WHERE lov_id=$1`, [catatan_lov_id]);
-  const effective = lov?.kode === "LOV-02";
+  const effRow = await q1<{ n: number }>(
+    `SELECT count(*) n FROM sjp_lov WHERE lov_id = ANY($1) AND kode='LOV-02'`, [catatan_ids]);
+  const effective = Number(effRow?.n || 0) > 0;
 
   const ins = await q1<{ visit_id: number }>(
     `INSERT INTO sjp_visit_log
-       (tgl, emp_id, cust_code, prospek_id, sched_id, is_oos, oos_lov_id, checkin_dt,
-        lat, lng, gps_accuracy, gps_distance_m, gps_valid, catatan_lov_id, free_text, is_effective_call, client_uid)
-     VALUES (($1::timestamptz AT TIME ZONE 'Asia/Jakarta')::date, $2,$3,$4,$5,$6,$7, $1::timestamptz,
-             $8,$9,$10,$11,$12,$13,$14,$15,$16)
+       (tgl, emp_id, cust_code, prospek_id, sched_id, is_oos, oos_lov_id, oos_lov_ids, checkin_dt,
+        lat, lng, gps_accuracy, gps_distance_m, gps_valid, catatan_lov_id, catatan_lov_ids, free_text, is_effective_call, client_uid,
+        ar_collect, ar_amount)
+     VALUES (($1::timestamptz AT TIME ZONE 'Asia/Jakarta')::date, $2,$3,$4,$5,$6,$7,$8, $1::timestamptz,
+             $9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      ON CONFLICT (client_uid) WHERE client_uid IS NOT NULL DO NOTHING
      RETURNING visit_id`,
-    [client_ts, emp, cust_code, prospek_id, sched_id, is_oos, oos_lov_id,
-     lat, lng, accuracy, gps_distance, gps_valid, catatan_lov_id, free_text, effective, client_uid]);
+    [client_ts, emp, cust_code, prospek_id, sched_id, is_oos, oos_lov_id, oos_ids.length ? oos_ids : null,
+     lat, lng, accuracy, gps_distance, gps_valid, catatan_lov_id, catatan_ids, free_text, effective, client_uid,
+     ar_collect, ar_amount]);
 
   // konflik client_uid (sudah masuk barusan) -> anggap sukses, lewati side-effect
   if (!ins?.visit_id) return NextResponse.json({ ok: true, dedup: true });

@@ -13,18 +13,23 @@ function uid() {
 }
 
 export default function CheckinForm({
-  schedId, custCode, custName, custLat, custLng, catatanLov, photoMandatory = true,
+  schedId, custCode, custName, custLat, custLng, catatanLov, photoMandatory = true, arOutstanding = null,
 }: {
   schedId?: number | null; custCode: string; custName?: string;
   custLat?: number | null; custLng?: number | null; catatanLov: Lov[]; photoMandatory?: boolean;
+  arOutstanding?: number | null;
 }) {
   const router = useRouter();
   const [pos, setPos] = useState<{ lat: number; lng: number; acc: number } | null>(null);
   const [gpsErr, setGpsErr] = useState("");
   const [gpsLoading, setGpsLoading] = useState(false);
   const [photo, setPhoto] = useState<string>("");
-  const [lov, setLov] = useState<string>("");
+  const [lovIds, setLovIds] = useState<string[]>([]);
+  const toggleLov = (id: string) =>
+    setLovIds((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
   const [freeText, setFreeText] = useState("");
+  const [arCollect, setArCollect] = useState<"" | "FULL" | "PARTIAL">("");
+  const [arAmount, setArAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: "err" | "offline"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -77,15 +82,19 @@ export default function CheckinForm({
   }
 
   const photoOk = photoMandatory ? !!photo : true;
-  const canSubmit = gpsReady && photoOk && !!lov && !submitting;
+  const arPartialOk = arCollect !== "PARTIAL" || Number(arAmount) > 0;
+  const canSubmit = gpsReady && photoOk && lovIds.length > 0 && arPartialOk && !submitting;
+  const hasAr = arOutstanding != null && Number(arOutstanding) > 0;
 
   async function doSubmit() {
-    if (!gpsReady || !photoOk || !lov || submitting) return;
+    if (!gpsReady || !photoOk || lovIds.length === 0 || !arPartialOk || submitting) return;
     setSubmitting(true); setMsg(null);
     const payload = {
       client_uid: uid(), client_ts: new Date().toISOString(),
       sched_id: schedId ?? null, cust_code: custCode, is_oos: false,
-      catatan_lov_id: lov, free_text: freeText || null,
+      catatan_lov_ids: lovIds, free_text: freeText || null,
+      ar_collect: arCollect || null,
+      ar_amount: arCollect === "FULL" ? arOutstanding : arCollect === "PARTIAL" ? Number(arAmount) : null,
       lat: pos!.lat, lng: pos!.lng, accuracy: pos!.acc, photo,
     };
 
@@ -165,18 +174,45 @@ export default function CheckinForm({
         </button>
       </div>
 
-      {/* Catatan LOV */}
+      {/* Catatan LOV (bisa pilih >1) */}
       <div>
-        <label className="lbl">Catatan Kunjungan <span className="text-brand">*</span></label>
+        <label className="lbl">Catatan Kunjungan <span className="text-brand">*</span> <span className="text-mut font-normal text-[11px]">(bisa pilih lebih dari satu)</span></label>
         <div className="flex flex-wrap gap-2">
-          {catatanLov.map((l) => (
-            <button type="button" key={l.lov_id} onClick={() => setLov(String(l.lov_id))}
-              className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${String(l.lov_id) === lov ? "bg-brand text-white border-brand" : "bg-white border-line"}`}>
-              {l.teks}
-            </button>
-          ))}
+          {catatanLov.map((l) => {
+            const on = lovIds.includes(String(l.lov_id));
+            return (
+              <button type="button" key={l.lov_id} onClick={() => toggleLov(String(l.lov_id))}
+                className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${on ? "bg-brand text-white border-brand" : "bg-white border-line"}`}>
+                {on ? "✓ " : ""}{l.teks}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      {/* Penagihan AR (opsional) */}
+      {hasAr ? (
+        <div>
+          <label className="lbl">Penagihan AR <span className="text-mut font-normal text-[11px]">(opsional · outstanding Rp {Number(arOutstanding).toLocaleString("id")})</span></label>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setArCollect((v) => (v === "FULL" ? "" : "FULL")); setArAmount(""); }}
+              className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${arCollect === "FULL" ? "bg-ok text-white border-ok" : "bg-white border-line"}`}>
+              {arCollect === "FULL" ? "✓ " : ""}Lunas (Full)
+            </button>
+            <button type="button" onClick={() => setArCollect((v) => (v === "PARTIAL" ? "" : "PARTIAL"))}
+              className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${arCollect === "PARTIAL" ? "bg-warn text-white border-warn" : "bg-white border-line"}`}>
+              {arCollect === "PARTIAL" ? "✓ " : ""}Bayar Sebagian
+            </button>
+          </div>
+          {arCollect === "FULL" ? (
+            <div className="text-[11px] text-ok mt-1">Tercatat lunas Rp {Number(arOutstanding).toLocaleString("id")}.</div>
+          ) : null}
+          {arCollect === "PARTIAL" ? (
+            <input type="number" inputMode="numeric" min={1} value={arAmount} onChange={(e) => setArAmount(e.target.value)}
+              className="inp mt-2" placeholder="Nominal dibayar (Rp)" />
+          ) : null}
+        </div>
+      ) : null}
 
       <div>
         <label className="lbl">Catatan Tambahan</label>
@@ -188,7 +224,7 @@ export default function CheckinForm({
 
       {!canSubmit && !submitting ? (
         <div className="text-[11px] text-mut text-center">
-          Lengkapi: {[!gpsReady ? "GPS" : null, (photoMandatory && !photo) ? "foto" : null, !lov ? "catatan" : null].filter(Boolean).join(", ")}
+          Lengkapi: {[!gpsReady ? "GPS" : null, (photoMandatory && !photo) ? "foto" : null, lovIds.length === 0 ? "catatan" : null].filter(Boolean).join(", ")}
         </div>
       ) : null}
       <button type="button" onClick={doSubmit} disabled={!canSubmit}

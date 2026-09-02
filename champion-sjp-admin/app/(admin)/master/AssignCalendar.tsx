@@ -105,7 +105,18 @@ export default async function AssignCalendar({
                               {cell.custs.slice(0, 3).map((n, i) => (
                                 <div key={i} className="truncate rounded bg-brand-soft text-brand px-1 py-[1px] leading-tight" title={n}>{n}</div>
                               ))}
-                              {cell.custs.length > 3 ? <div className="text-mut">+{cell.custs.length - 3} lagi</div> : null}
+                              {cell.custs.length > 3 ? (
+                                <details className="group">
+                                  <summary className="text-mut cursor-pointer list-none hover:text-brand marker:hidden">
+                                    +{cell.custs.length - 3} lagi ▾
+                                  </summary>
+                                  <div className="space-y-0.5 mt-0.5">
+                                    {cell.custs.slice(3).map((n, i) => (
+                                      <div key={i} className="truncate rounded bg-brand-soft text-brand px-1 py-[1px] leading-tight" title={n}>{n}</div>
+                                    ))}
+                                  </div>
+                                </details>
+                              ) : null}
                             </div>
                           </>
                         ) : null}

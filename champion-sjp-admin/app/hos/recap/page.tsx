@@ -18,8 +18,9 @@ export default async function Recap({ searchParams }: { searchParams: { m?: stri
       (SELECT count(*) FROM sjp_visit_log WHERE tgl BETWEEN $1 AND $2 AND is_oos) oos,
       (SELECT count(*) FROM sjp_schedule WHERE tgl BETWEEN $1 AND $2) plan,
       (SELECT count(*) FROM sjp_visit_log WHERE tgl BETWEEN $1 AND $2 AND sched_id IS NOT NULL) done,
-      (SELECT count(*) FROM sjp_visit_log v JOIN sjp_lov l ON l.lov_id=v.catatan_lov_id
-        WHERE v.tgl BETWEEN $1 AND $2 AND l.kode='LOV-07') ar_follow
+      (SELECT count(*) FROM sjp_visit_log v
+        WHERE v.tgl BETWEEN $1 AND $2
+          AND EXISTS (SELECT 1 FROM sjp_lov l WHERE l.lov_id = ANY(COALESCE(v.catatan_lov_ids, ARRAY[v.catatan_lov_id])) AND l.kode='LOV-07')) ar_follow
   `, [first, last]);
 
   const trend = await q<any>(`
