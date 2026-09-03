@@ -42,7 +42,7 @@ export default async function ApprovalGpsPage({
   const osm = (lat: number, lng: number) =>
     `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
   const fmtTime = (t: string) =>
-    new Date(t).toLocaleString("id", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    new Date(t).toLocaleString("id", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
 
   return (
     <>
