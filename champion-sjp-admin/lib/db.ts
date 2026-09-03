@@ -18,13 +18,15 @@ function makePool() {
     ssl: process.env.PGSSL ? { rejectUnauthorized: false } : undefined,
     max: 5,
     idleTimeoutMillis: 30000,
-    // search_path via STARTUP OPTION -> terpasang di backend saat koneksi dibuka.
+    // search_path + timezone via STARTUP OPTION -> terpasang di backend saat koneksi dibuka.
     // Andal di Transaction Pooler Supabase (SET session tidak selalu ikut per-transaksi).
-    options: `-c search_path="${SCHEMA}",public,extensions`,
+    // timezone=Asia/Jakarta: semua to_char(timestamptz) & CURRENT_DATE otomatis WIB.
+    options: `-c search_path="${SCHEMA}",public,extensions -c timezone=Asia/Jakarta`,
   });
   // cadangan (bila 'options' tak diteruskan): set lagi tiap koneksi baru
   pool.on("connect", (client) => {
     client.query(`SET search_path TO "${SCHEMA}", public, extensions`).catch(() => {});
+    client.query(`SET timezone TO 'Asia/Jakarta'`).catch(() => {});
   });
   return pool;
 }
