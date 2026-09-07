@@ -6,7 +6,7 @@ export type Col = {
   key: string;
   label: string;
   align?: "left" | "center" | "right";
-  fmt?: "text" | "int" | "pct" | "rp" | "date" | "pill";
+  fmt?: "text" | "int" | "pct" | "rp" | "date" | "datetime" | "pill" | "tag";
 };
 
 const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
@@ -42,7 +42,13 @@ export default function SortableTable({
     if (c.fmt === "rp") return rp(v);
     if (c.fmt === "pct") return `${v}%`;
     if (c.fmt === "date") return v ? new Date(v).toLocaleDateString("id") : "—";
+    if (c.fmt === "datetime") {
+      if (!v) return "—";
+      const [d, t] = String(v).split(" ");
+      return `${new Date(d).toLocaleDateString("id")}${t ? " " + t : ""}`;
+    }
     if (c.fmt === "pill") return <span className={`pill ${row["__tone_" + c.key] || "p-mut"}`}>{v}%</span>;
+    if (c.fmt === "tag") return v ? <span className="pill p-warn">{v}</span> : "—";
     return v ?? "—";
   };
 

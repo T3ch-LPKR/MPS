@@ -96,29 +96,20 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
             ))}
           </div>
         ) : null}
-        {noteDetail.length === 0 ? (
-          <div className="text-sm text-mut">Tidak ada catatan bermasalah pada periode ini.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead><tr>
-                <th className="th text-left">Tgl</th><th className="th text-left">Salesman</th>
-                <th className="th text-left">Customer</th><th className="th text-left">Jenis</th><th className="th text-left">Catatan</th>
-              </tr></thead>
-              <tbody>
-                {noteDetail.map((r: any, i: number) => (
-                  <tr key={i} className="hover:bg-[#fafafa]">
-                    <td className="td whitespace-nowrap">{new Date(r.tgl).toLocaleDateString("id")} {r.jam}</td>
-                    <td className="td">{r.emp_name}</td>
-                    <td className="td font-medium">{r.nama}</td>
-                    <td className="td"><span className="pill p-warn">{r.jenis}</span></td>
-                    <td className="td text-mut">{r.free_text || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <SortableTable
+          columns={[
+            { key: "waktu", label: "Tgl", align: "left", fmt: "datetime" },
+            { key: "emp_name", label: "Salesman", align: "left", fmt: "text" },
+            { key: "nama", label: "Customer", align: "left", fmt: "text" },
+            { key: "jenis", label: "Jenis", align: "left", fmt: "tag" },
+            { key: "free_text", label: "Catatan", align: "left", fmt: "text" },
+          ] as Col[]}
+          rows={noteDetail.map((r: any, i: number) => ({
+            __key: i, waktu: `${r.tgl} ${r.jam}`, emp_name: r.emp_name, nama: r.nama, jenis: r.jenis, free_text: r.free_text,
+          }))}
+          initial={{ key: "waktu", dir: "desc" }}
+          empty="Tidak ada catatan bermasalah pada periode ini."
+        />
       </div>
 
       {/* 2. Kunjungan terlewat */}
