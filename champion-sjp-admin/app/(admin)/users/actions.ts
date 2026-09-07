@@ -25,7 +25,7 @@ export async function addUser(_prev: any, formData: FormData) {
 
   const r = await q(
     `INSERT INTO sjp_user_login (username, password_hash, full_name, role, emp_id, is_active)
-     VALUES ($1, crypt($2, gen_salt('bf')), $3, $4, $5, true)
+     VALUES ($1, crypt($2, gen_salt('bf', 10)), $3, $4, $5, true)
      ON CONFLICT (username) DO NOTHING
      RETURNING user_id`,
     [username, password, full_name, role, emp_id]
@@ -46,7 +46,7 @@ export async function resetPassword(_prev: any, formData: FormData) {
   // password superadmin hanya boleh diubah oleh superadmin
   if (target?.role === "superadmin" && s?.role !== "superadmin") return { error: "Terkunci." };
 
-  await q(`UPDATE sjp_user_login SET password_hash = crypt($2, gen_salt('bf')) WHERE user_id = $1`, [user_id, password]);
+  await q(`UPDATE sjp_user_login SET password_hash = crypt($2, gen_salt('bf', 10)) WHERE user_id = $1`, [user_id, password]);
   revalidatePath("/users");
   return { ok: true };
 }

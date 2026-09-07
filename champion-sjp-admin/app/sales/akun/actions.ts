@@ -19,6 +19,6 @@ export async function changeOwnPassword(_prev: any, formData: FormData) {
   );
   if (!row?.ok) return { error: "Password lama salah." };
 
-  await q(`UPDATE sjp_user_login SET password_hash = crypt($2, gen_salt('bf')) WHERE user_id=$1`, [s.user_id, np]);
+  await q(`UPDATE sjp_user_login SET password_hash = crypt($2, gen_salt('bf', 10)) WHERE user_id=$1`, [s.user_id, np]);
   return { ok: true };
 }
