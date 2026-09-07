@@ -17,6 +17,10 @@ const GROUPS: { title: string | null; items: { href: string; label: string; icon
     { href: "/approval-gps", label: "Approval GPS", icon: "📍" },
     { href: "/prospek", label: "Prospek", icon: "◎" },
   ]},
+  { title: "Laporan", items: [
+    { href: "/laporan/produktivitas", label: "Produktivitas", icon: "📈" },
+    { href: "/laporan/issue", label: "Issue Lapangan", icon: "⚠" },
+  ]},
   { title: "Komunikasi", items: [
     { href: "/berita", label: "Berita", icon: "📰" },
   ]},
