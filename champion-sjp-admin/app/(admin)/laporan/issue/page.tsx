@@ -2,10 +2,10 @@ import Link from "next/link";
 import { q, q1 } from "@/lib/db";
 import { resolvePeriod, type PeriodSP } from "../period";
 import PeriodFilter from "../PeriodFilter";
+import SortableTable, { type Col } from "../SortableTable";
 
 export const dynamic = "force-dynamic";
 
-const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
 
 function Tabs() {
   return (
@@ -70,10 +70,13 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
 
   // 3b) AR overdue (snapshot terbaru, bukan per periode)
   const arOverdue = await q<any>(`
-    SELECT c.cust_code, c.cust_name, e.emp_name, ar.ar_outstanding, ar.ar_overdue
+    SELECT c.cust_code, c.cust_name,
+      (SELECT e.emp_name FROM sjp_assignment a JOIN sjp_employee e ON e.emp_id=a.emp_id
+         WHERE a.cust_code=c.cust_code AND a.is_active ORDER BY a.assign_id LIMIT 1) emp_name,
+      ar.ar_outstanding, ar.ar_overdue
     FROM sjp_customer_ar ar JOIN sjp_customer c ON c.cust_code=ar.cust_code
-    LEFT JOIN sjp_employee e ON e.emp_id=c.emp_id
-    WHERE ar.ar_overdue > 0 AND ($1='' OR c.emp_id=$1)
+    WHERE ar.ar_overdue > 0
+      AND ($1='' OR EXISTS(SELECT 1 FROM sjp_assignment a WHERE a.cust_code=c.cust_code AND a.is_active AND a.emp_id=$1))
     ORDER BY ar.ar_overdue DESC LIMIT 20`, [femp]);
 
   return (
@@ -122,81 +125,50 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
       <div className="card p-5 mb-4">
         <div className="font-bold mb-2">🚫 Kunjungan Terlewat <span className="text-mut font-normal text-sm">({Number(missCount?.n || 0)} jadwal)</span></div>
         <div className="text-[11px] text-mut mb-2">Jadwal pada hari yang sudah lewat tanpa check-in.</div>
-        {missed.length === 0 ? (
-          <div className="text-sm text-mut">Tidak ada kunjungan terlewat pada periode ini.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead><tr>
-                <th className="th text-left">Tgl</th><th className="th text-left">Salesman</th><th className="th text-left">Customer</th>
-              </tr></thead>
-              <tbody>
-                {missed.map((r: any, i: number) => (
-                  <tr key={i} className="hover:bg-[#fafafa]">
-                    <td className="td whitespace-nowrap">{new Date(r.tgl).toLocaleDateString("id")}</td>
-                    <td className="td">{r.emp_name}</td>
-                    <td className="td font-medium">{r.cust_name}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {Number(missCount?.n || 0) > missed.length ? <div className="text-[11px] text-mut mt-2">Menampilkan 100 teratas dari {Number(missCount?.n)} jadwal terlewat.</div> : null}
-          </div>
-        )}
+        <SortableTable
+          columns={[
+            { key: "tgl", label: "Tgl", align: "left", fmt: "date" },
+            { key: "emp_name", label: "Salesman", align: "left", fmt: "text" },
+            { key: "cust_name", label: "Customer", align: "left", fmt: "text" },
+          ] as Col[]}
+          rows={missed.map((r: any, i: number) => ({ __key: i, tgl: r.tgl, emp_name: r.emp_name, cust_name: r.cust_name }))}
+          initial={{ key: "tgl", dir: "desc" }}
+          empty="Tidak ada kunjungan terlewat pada periode ini."
+        />
+        {Number(missCount?.n || 0) > missed.length ? <div className="text-[11px] text-mut mt-2">Menampilkan 100 teratas dari {Number(missCount?.n)} jadwal terlewat.</div> : null}
       </div>
 
       {/* 3a. Absensi belum lengkap */}
       <div className="card p-5 mb-4">
         <div className="font-bold mb-2">🕒 Absensi Belum Lengkap <span className="text-mut font-normal text-sm">({absRows.length} salesman)</span></div>
-        {absRows.length === 0 ? (
-          <div className="text-sm text-mut">Semua absensi lengkap pada periode ini.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead><tr>
-                <th className="th text-left">Salesman</th><th className="th">Belum absen masuk (hari)</th><th className="th">Belum absen pulang (hari)</th>
-              </tr></thead>
-              <tbody>
-                {absRows.map((r: any) => (
-                  <tr key={r.emp_id} className="hover:bg-[#fafafa]">
-                    <td className="td font-semibold">{r.emp_name}</td>
-                    <td className="td text-center">{Number(r.belum_absen) > 0 ? <span className="pill p-bad">{r.belum_absen}</span> : "—"}</td>
-                    <td className="td text-center">{Number(r.belum_pulang) > 0 ? <span className="pill p-warn">{r.belum_pulang}</span> : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="text-[11px] text-mut mt-2">Belum absen masuk = hari berjadwal tanpa absen masuk. Belum pulang = ada absen masuk tapi tak ada absen pulang (hari lampau).</div>
-          </div>
-        )}
+        <SortableTable
+          columns={[
+            { key: "emp_name", label: "Salesman", align: "left", fmt: "text" },
+            { key: "belum_absen", label: "Belum absen masuk (hari)", align: "center", fmt: "int" },
+            { key: "belum_pulang", label: "Belum absen pulang (hari)", align: "center", fmt: "int" },
+          ] as Col[]}
+          rows={absRows.map((r: any) => ({ __key: r.emp_id, emp_name: r.emp_name, belum_absen: Number(r.belum_absen), belum_pulang: Number(r.belum_pulang) }))}
+          initial={{ key: "belum_absen", dir: "desc" }}
+          empty="Semua absensi lengkap pada periode ini."
+        />
+        <div className="text-[11px] text-mut mt-2">Belum absen masuk = hari berjadwal tanpa absen masuk. Belum pulang = ada absen masuk tapi tak ada absen pulang (hari lampau).</div>
       </div>
 
       {/* 3b. AR overdue */}
       <div className="card p-5 mb-4">
         <div className="font-bold mb-2">💰 AR Overdue Tertinggi <span className="text-mut font-normal text-sm">(snapshot terbaru)</span></div>
-        {arOverdue.length === 0 ? (
-          <div className="text-sm text-mut">Tidak ada AR overdue.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead><tr>
-                <th className="th text-left">Customer</th><th className="th text-left">PIC Salesman</th>
-                <th className="th text-right">Outstanding</th><th className="th text-right">Overdue</th>
-              </tr></thead>
-              <tbody>
-                {arOverdue.map((r: any) => (
-                  <tr key={r.cust_code} className="hover:bg-[#fafafa]">
-                    <td className="td font-medium">{r.cust_name}</td>
-                    <td className="td">{r.emp_name || "—"}</td>
-                    <td className="td text-right tabular-nums">{rp(r.ar_outstanding)}</td>
-                    <td className="td text-right tabular-nums text-bad font-semibold">{rp(r.ar_overdue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="text-[11px] text-mut mt-2">AR = snapshot terbaru dari sinkronisasi DWH (bukan per rentang periode).</div>
-          </div>
-        )}
+        <SortableTable
+          columns={[
+            { key: "cust_name", label: "Customer", align: "left", fmt: "text" },
+            { key: "emp_name", label: "PIC Salesman", align: "left", fmt: "text" },
+            { key: "ar_outstanding", label: "Outstanding", align: "right", fmt: "rp" },
+            { key: "ar_overdue", label: "Overdue", align: "right", fmt: "rp" },
+          ] as Col[]}
+          rows={arOverdue.map((r: any) => ({ __key: r.cust_code, cust_name: r.cust_name, emp_name: r.emp_name, ar_outstanding: Number(r.ar_outstanding), ar_overdue: Number(r.ar_overdue) }))}
+          initial={{ key: "ar_overdue", dir: "desc" }}
+          empty="Tidak ada AR overdue."
+        />
+        <div className="text-[11px] text-mut mt-2">AR = snapshot terbaru dari sinkronisasi DWH (bukan per rentang periode).</div>
       </div>
     </>
   );

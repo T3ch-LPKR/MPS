@@ -2,6 +2,7 @@ import Link from "next/link";
 import { q } from "@/lib/db";
 import { resolvePeriod, type PeriodSP } from "../period";
 import PeriodFilter from "../PeriodFilter";
+import SortableTable, { type Col } from "../SortableTable";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,29 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
 
   const attention = rows.filter((r: any) => num(r.plan) > 0 && pct(num(r.done), num(r.plan)) < 70);
 
+  const tableRows = rows.map((r: any) => {
+    const plan = num(r.plan), done = num(r.done), visit = num(r.visit);
+    const comp = pct(done, plan);
+    return {
+      __key: r.emp_id, emp_name: r.emp_name, plan, done,
+      comp, "__tone_comp": compTone(comp, plan),
+      visit, effpct: pct(num(r.eff), visit), oos: num(r.oos),
+      ar_follow: num(r.ar_follow), ar_amount: num(r.ar_amount), hari_absen: num(r.hari_absen),
+    };
+  });
+  const cols: Col[] = [
+    { key: "emp_name", label: "Salesman", align: "left" },
+    { key: "plan", label: "Plan", align: "center", fmt: "int" },
+    { key: "done", label: "Realisasi", align: "center", fmt: "int" },
+    { key: "comp", label: "Compliance", align: "center", fmt: "pill" },
+    { key: "visit", label: "Kunjungan", align: "center", fmt: "int" },
+    { key: "effpct", label: "Eff. Call", align: "center", fmt: "pct" },
+    { key: "oos", label: "OOS", align: "center", fmt: "int" },
+    { key: "ar_follow", label: "AR ditindak", align: "center", fmt: "int" },
+    { key: "ar_amount", label: "AR tertagih", align: "right", fmt: "rp" },
+    { key: "hari_absen", label: "Hari absen", align: "center", fmt: "int" },
+  ];
+
   return (
     <>
       <div className="mb-1 text-xl font-bold">Laporan Produktivitas Salesman</div>
@@ -80,48 +104,10 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
         </div>
       ) : null}
 
-      <div className="card p-5 overflow-x-auto">
-        {rows.length === 0 ? (
-          <div className="text-sm text-mut">Tidak ada salesman.</div>
-        ) : (
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className="th text-left">Salesman</th>
-                <th className="th">Plan</th>
-                <th className="th">Realisasi</th>
-                <th className="th">Compliance</th>
-                <th className="th">Kunjungan</th>
-                <th className="th">Eff. Call</th>
-                <th className="th">OOS</th>
-                <th className="th">AR ditindak</th>
-                <th className="th">AR tertagih</th>
-                <th className="th">Hari absen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r: any) => {
-                const comp = pct(num(r.done), num(r.plan));
-                return (
-                  <tr key={r.emp_id} className="hover:bg-[#fafafa]">
-                    <td className="td font-semibold">{r.emp_name}</td>
-                    <td className="td text-center">{num(r.plan)}</td>
-                    <td className="td text-center">{num(r.done)}</td>
-                    <td className="td text-center"><span className={`pill ${compTone(comp, num(r.plan))}`}>{comp}%</span></td>
-                    <td className="td text-center">{num(r.visit)}</td>
-                    <td className="td text-center">{pct(num(r.eff), num(r.visit))}%</td>
-                    <td className="td text-center">{num(r.oos)}</td>
-                    <td className="td text-center">{num(r.ar_follow)}</td>
-                    <td className="td text-right tabular-nums">{rp(r.ar_amount)}</td>
-                    <td className="td text-center">{num(r.hari_absen)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+      <div className="card p-5">
+        <SortableTable columns={cols} rows={tableRows} initial={{ key: "comp", dir: "desc" }} empty="Tidak ada salesman." />
       </div>
-      <div className="text-[11px] text-mut mt-2">Compliance = Realisasi ÷ Plan (kunjungan sesuai jadwal). Effective Call = kunjungan dengan catatan Reorder ÷ total kunjungan. AR tertagih = jumlah nominal penagihan (Lunas/Sebagian) yang dicatat salesman.</div>
+      <div className="text-[11px] text-mut mt-2">Klik judul kolom untuk mengurutkan. Compliance = Realisasi ÷ Plan (kunjungan sesuai jadwal). Effective Call = kunjungan dengan catatan Reorder ÷ total kunjungan. AR tertagih = jumlah nominal penagihan (Lunas/Sebagian) yang dicatat salesman.</div>
     </>
   );
 }
