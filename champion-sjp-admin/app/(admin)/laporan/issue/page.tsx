@@ -3,6 +3,7 @@ import { q, q1 } from "@/lib/db";
 import { resolvePeriod, type PeriodSP } from "../period";
 import PeriodFilter from "../PeriodFilter";
 import SortableTable, { type Col } from "../SortableTable";
+import BarChart, { type BarDatum } from "../Charts";
 
 export const dynamic = "force-dynamic";
 
@@ -90,10 +91,11 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
       <div className="card p-5 mb-4">
         <div className="font-bold mb-2">📝 Catatan Bermasalah <span className="text-mut font-normal text-sm">({noteDetail.length} kunjungan)</span></div>
         {noteSummary.length ? (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {noteSummary.map((s: any) => (
-              <span key={s.kode} className="pill p-warn">{s.teks}: <b>{s.n}</b></span>
-            ))}
+          <div className="mb-3">
+            <BarChart
+              data={noteSummary.map((s: any): BarDatum => ({ label: s.teks, value: Number(s.n), tone: "warn" }))}
+              labelWidth="11rem"
+            />
           </div>
         ) : null}
         <SortableTable

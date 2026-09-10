@@ -3,6 +3,7 @@ import { q } from "@/lib/db";
 import { resolvePeriod, type PeriodSP } from "../period";
 import PeriodFilter from "../PeriodFilter";
 import SortableTable, { type Col } from "../SortableTable";
+import BarChart, { type BarDatum, type Tone } from "../Charts";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,12 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
       ar_follow: num(r.ar_follow), ar_amount: num(r.ar_amount), hari_absen: num(r.hari_absen),
     };
   });
+  const toneMap: Record<string, Tone> = { "p-ok": "ok", "p-warn": "warn", "p-bad": "bad", "p-mut": "brand" };
+  const compBars: BarDatum[] = tableRows
+    .filter((r) => r.plan > 0)
+    .sort((a, b) => b.comp - a.comp)
+    .map((r) => ({ label: r.emp_name, value: r.comp, tone: toneMap[r["__tone_comp"]] || "brand", display: `${r.comp}` }));
+
   const cols: Col[] = [
     { key: "emp_name", label: "Salesman", align: "left" },
     { key: "plan", label: "Plan", align: "center", fmt: "int" },
@@ -95,6 +102,11 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
         <Kpi label="Total Kunjungan" value={T.visit} sub={`${T.oos} luar jadwal`} tone="brand" />
         <Kpi label="Effective Call" value={`${pct(T.eff, T.visit)}%`} sub={`${T.eff} reorder`} tone="warn" />
         <Kpi label="AR Tertagih" value={rp(T.ar_amount)} sub={`${T.ar_follow} kunjungan tagih`} tone="info" />
+      </div>
+
+      <div className="card p-5 mb-4">
+        <div className="font-bold mb-3">Kepatuhan Jadwal per Salesman <span className="text-mut font-normal text-sm">(compliance %, urut tertinggi)</span></div>
+        <BarChart data={compBars} unit="%" max={100} empty="Belum ada jadwal pada periode ini." />
       </div>
 
       {attention.length ? (
