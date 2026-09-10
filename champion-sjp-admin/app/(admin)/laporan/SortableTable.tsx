@@ -6,10 +6,11 @@ export type Col = {
   key: string;
   label: string;
   align?: "left" | "center" | "right";
-  fmt?: "text" | "int" | "pct" | "rp" | "date" | "datetime" | "pill" | "tag";
+  fmt?: "text" | "int" | "pct" | "rp" | "date" | "datetime" | "pill" | "tag" | "bar";
 };
 
 const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
+const TONE_HEX: Record<string, string> = { "p-ok": "#16a34a", "p-warn": "#f59e0b", "p-bad": "#dc2626", "p-mut": "#9ca3af" };
 const alignCls = (a?: string) => (a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left");
 
 // Tabel dengan sort klik header (client-side). rows = objek plain (nilai numerik untuk sort).
@@ -48,6 +49,18 @@ export default function SortableTable({
       return `${new Date(d).toLocaleDateString("id")}${t ? " " + t : ""}`;
     }
     if (c.fmt === "pill") return <span className={`pill ${row["__tone_" + c.key] || "p-mut"}`}>{v}%</span>;
+    if (c.fmt === "bar") {
+      const tone = row["__tone_" + c.key] || "p-mut";
+      const w = Math.max(2, Math.min(100, Number(v) || 0));
+      return (
+        <div className="flex items-center gap-2 min-w-[120px]">
+          <div className="flex-1 h-2 rounded-full bg-line overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${w}%`, background: TONE_HEX[tone] || "#9ca3af" }} />
+          </div>
+          <span className="tabular-nums font-semibold w-9 text-right">{v}%</span>
+        </div>
+      );
+    }
     if (c.fmt === "tag") return v ? <span className="pill p-warn">{v}</span> : "—";
     return v ?? "—";
   };

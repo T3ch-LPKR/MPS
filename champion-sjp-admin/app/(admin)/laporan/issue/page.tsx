@@ -4,6 +4,7 @@ import { resolvePeriod, type PeriodSP } from "../period";
 import PeriodFilter from "../PeriodFilter";
 import SortableTable, { type Col } from "../SortableTable";
 import BarChart, { type BarDatum } from "../Charts";
+import KpiStrip from "../KpiStrip";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,9 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
       AND ($1='' OR EXISTS(SELECT 1 FROM sjp_assignment a WHERE a.cust_code=c.cust_code AND a.is_active AND a.emp_id=$1))
     ORDER BY ar.ar_overdue DESC LIMIT 20`, [femp]);
 
+  const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
+  const arOverdueTotal = arOverdue.reduce((a: number, r: any) => a + Number(r.ar_overdue || 0), 0);
+
   return (
     <>
       <div className="mb-1 text-xl font-bold">Laporan Issue Lapangan</div>
@@ -87,11 +91,18 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
       <Tabs />
       <PeriodFilter action="/laporan/issue" sp={searchParams} salesmen={salesmen} label={label} />
 
+      <KpiStrip items={[
+        { label: "Catatan Bermasalah", value: noteDetail.length, sub: "kunjungan", lead: true },
+        { label: "Kunjungan Terlewat", value: Number(missCount?.n || 0), sub: "jadwal lampau" },
+        { label: "Absensi Bermasalah", value: absRows.length, sub: "salesman" },
+        { label: "AR Overdue", value: arOverdue.length, sub: rp(arOverdueTotal) },
+      ]} />
+
       {/* 1. Catatan bermasalah */}
-      <div className="card p-5 mb-4">
+      <div className="card p-4 mb-4">
         <div className="font-bold mb-2">📝 Catatan Bermasalah <span className="text-mut font-normal text-sm">({noteDetail.length} kunjungan)</span></div>
         {noteSummary.length ? (
-          <div className="mb-3">
+          <div className="mb-3 max-w-xl">
             <BarChart
               data={noteSummary.map((s: any): BarDatum => ({ label: s.teks, value: Number(s.n), tone: "warn" }))}
               labelWidth="11rem"
@@ -115,7 +126,7 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
       </div>
 
       {/* 2. Kunjungan terlewat */}
-      <div className="card p-5 mb-4">
+      <div className="card p-4 mb-4">
         <div className="font-bold mb-2">🚫 Kunjungan Terlewat <span className="text-mut font-normal text-sm">({Number(missCount?.n || 0)} jadwal)</span></div>
         <div className="text-[11px] text-mut mb-2">Jadwal pada hari yang sudah lewat tanpa check-in.</div>
         <SortableTable
@@ -132,7 +143,7 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
       </div>
 
       {/* 3a. Absensi belum lengkap */}
-      <div className="card p-5 mb-4">
+      <div className="card p-4 mb-4">
         <div className="font-bold mb-2">🕒 Absensi Belum Lengkap <span className="text-mut font-normal text-sm">({absRows.length} salesman)</span></div>
         <SortableTable
           columns={[
@@ -148,7 +159,7 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
       </div>
 
       {/* 3b. AR overdue */}
-      <div className="card p-5 mb-4">
+      <div className="card p-4 mb-4">
         <div className="font-bold mb-2">💰 AR Overdue Tertinggi <span className="text-mut font-normal text-sm">(snapshot terbaru)</span></div>
         <SortableTable
           columns={[

@@ -3,7 +3,8 @@ import { q } from "@/lib/db";
 import { resolvePeriod, type PeriodSP } from "../period";
 import PeriodFilter from "../PeriodFilter";
 import SortableTable, { type Col } from "../SortableTable";
-import BarChart, { type BarDatum, type Tone } from "../Charts";
+import { DistBar } from "../Charts";
+import KpiStrip from "../KpiStrip";
 
 export const dynamic = "force-dynamic";
 
@@ -11,20 +12,9 @@ const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
 const compTone = (p: number, plan: number) => (plan === 0 ? "p-mut" : p >= 80 ? "p-ok" : p >= 50 ? "p-warn" : "p-bad");
 
-function Kpi({ label, value, sub, tone = "brand" }: any) {
-  const bar: any = { brand: "before:bg-brand", ok: "before:bg-ok", warn: "before:bg-warn", info: "before:bg-info" };
-  return (
-    <div className={`card p-4 relative overflow-hidden before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 ${bar[tone]}`}>
-      <div className="text-xs text-mut font-medium">{label}</div>
-      <div className="text-2xl font-extrabold mt-1 tracking-tight">{value}</div>
-      {sub ? <div className="text-[11px] text-mut mt-0.5">{sub}</div> : null}
-    </div>
-  );
-}
-
 function Tabs() {
   return (
-    <div className="flex gap-2 mb-4 text-sm">
+    <div className="flex gap-2 mb-3 text-sm">
       <Link href="/laporan/produktivitas" className="btn btn-pri btn-sm">Produktivitas</Link>
       <Link href="/laporan/issue" className="btn btn-sm">Issue Lapangan</Link>
     </div>
@@ -58,8 +48,6 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
     ar_amount: a.ar_amount + num(r.ar_amount),
   }), { plan: 0, done: 0, visit: 0, eff: 0, oos: 0, ar_follow: 0, ar_amount: 0 });
 
-  const attention = rows.filter((r: any) => num(r.plan) > 0 && pct(num(r.done), num(r.plan)) < 70);
-
   const tableRows = rows.map((r: any) => {
     const plan = num(r.plan), done = num(r.done), visit = num(r.visit);
     const comp = pct(done, plan);
@@ -70,17 +58,21 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
       ar_follow: num(r.ar_follow), ar_amount: num(r.ar_amount), hari_absen: num(r.hari_absen),
     };
   });
-  const toneMap: Record<string, Tone> = { "p-ok": "ok", "p-warn": "warn", "p-bad": "bad", "p-mut": "brand" };
-  const compBars: BarDatum[] = tableRows
-    .filter((r) => r.plan > 0)
-    .sort((a, b) => b.comp - a.comp)
-    .map((r) => ({ label: r.emp_name, value: r.comp, tone: toneMap[r["__tone_comp"]] || "brand", display: `${r.comp}` }));
+
+  // sebaran tier + top/bottom (hanya salesman berjadwal)
+  const withPlan = tableRows.filter((r) => r.plan > 0);
+  const tierOk = withPlan.filter((r) => r.comp >= 80).length;
+  const tierMid = withPlan.filter((r) => r.comp >= 50 && r.comp < 80).length;
+  const tierLow = withPlan.filter((r) => r.comp < 50).length;
+  const ranked = [...withPlan].sort((a, b) => b.comp - a.comp);
+  const top = ranked.slice(0, 3);
+  const bottom = ranked.slice(-3).reverse();
 
   const cols: Col[] = [
     { key: "emp_name", label: "Salesman", align: "left" },
     { key: "plan", label: "Plan", align: "center", fmt: "int" },
     { key: "done", label: "Realisasi", align: "center", fmt: "int" },
-    { key: "comp", label: "Compliance", align: "center", fmt: "pill" },
+    { key: "comp", label: "Compliance", align: "left", fmt: "bar" },
     { key: "visit", label: "Kunjungan", align: "center", fmt: "int" },
     { key: "effpct", label: "Eff. Call", align: "center", fmt: "pct" },
     { key: "oos", label: "OOS", align: "center", fmt: "int" },
@@ -92,34 +84,42 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
   return (
     <>
       <div className="mb-1 text-xl font-bold">Laporan Produktivitas Salesman</div>
-      <div className="text-sm text-mut mb-4">Ringkasan kinerja kunjungan per salesman</div>
+      <div className="text-sm text-mut mb-3">Ringkasan kinerja kunjungan per salesman</div>
       <Tabs />
       <PeriodFilter action="/laporan/produktivitas" sp={searchParams} salesmen={salesmen} label={label} />
 
-      <div className="grid grid-cols-5 gap-3 mb-4 max-[1100px]:grid-cols-3 max-[700px]:grid-cols-2">
-        <Kpi label="Plan" value={T.plan} tone="info" />
-        <Kpi label="Realisasi" value={T.done} sub={`Compliance ${pct(T.done, T.plan)}%`} tone="ok" />
-        <Kpi label="Total Kunjungan" value={T.visit} sub={`${T.oos} luar jadwal`} tone="brand" />
-        <Kpi label="Effective Call" value={`${pct(T.eff, T.visit)}%`} sub={`${T.eff} reorder`} tone="warn" />
-        <Kpi label="AR Tertagih" value={rp(T.ar_amount)} sub={`${T.ar_follow} kunjungan tagih`} tone="info" />
-      </div>
+      <KpiStrip items={[
+        { label: "Plan", value: T.plan },
+        { label: "Realisasi", value: T.done },
+        { label: "Kepatuhan", value: `${pct(T.done, T.plan)}%`, sub: `${T.done}/${T.plan}`, lead: true },
+        { label: "Total Kunjungan", value: T.visit },
+        { label: "Luar Jadwal", value: T.oos },
+        { label: "Effective Call", value: `${pct(T.eff, T.visit)}%`, sub: `${T.eff} reorder` },
+        { label: "AR Tertagih", value: rp(T.ar_amount), sub: `${T.ar_follow} kunjungan` },
+      ]} />
 
-      <div className="card p-5 mb-4">
-        <div className="font-bold mb-3">Kepatuhan Jadwal per Salesman <span className="text-mut font-normal text-sm">(compliance %, urut tertinggi)</span></div>
-        <BarChart data={compBars} unit="%" max={100} empty="Belum ada jadwal pada periode ini." />
-      </div>
-
-      {attention.length ? (
-        <div className="card p-3 mb-4 border-l-4 border-bad">
-          <div className="text-sm font-bold text-bad mb-1">⚠️ Perlu perhatian — compliance &lt; 70%</div>
-          <div className="text-xs text-mut">{attention.map((r: any) => `${r.emp_name} (${pct(num(r.done), num(r.plan))}%)`).join(" · ")}</div>
+      <div className="card p-4 mb-4">
+        <div className="flex items-baseline justify-between mb-2">
+          <div className="text-[13px] font-bold">Sebaran Kepatuhan</div>
+          <div className="text-[11px] text-mut">{withPlan.length} salesman berjadwal</div>
         </div>
-      ) : null}
+        <DistBar segments={[
+          { label: "Baik ≥80%", value: tierOk, tone: "ok" },
+          { label: "Sedang 50–79%", value: tierMid, tone: "warn" },
+          { label: "Rendah <50%", value: tierLow, tone: "bad" },
+        ]} />
+        {withPlan.length ? (
+          <div className="grid grid-cols-2 gap-3 mt-3 text-xs max-[600px]:grid-cols-1">
+            <div><span className="text-mut font-semibold">Top:</span> {top.map((r) => `${r.emp_name} ${r.comp}%`).join(" · ")}</div>
+            <div><span className="text-mut font-semibold">Terendah:</span> {bottom.map((r) => `${r.emp_name} ${r.comp}%`).join(" · ")}</div>
+          </div>
+        ) : null}
+      </div>
 
-      <div className="card p-5">
+      <div className="card p-4">
         <SortableTable columns={cols} rows={tableRows} initial={{ key: "comp", dir: "desc" }} empty="Tidak ada salesman." />
       </div>
-      <div className="text-[11px] text-mut mt-2">Klik judul kolom untuk mengurutkan. Compliance = Realisasi ÷ Plan (kunjungan sesuai jadwal). Effective Call = kunjungan dengan catatan Reorder ÷ total kunjungan. AR tertagih = jumlah nominal penagihan (Lunas/Sebagian) yang dicatat salesman.</div>
+      <div className="text-[11px] text-mut mt-2">Klik judul kolom untuk mengurutkan. Compliance = Realisasi ÷ Plan · Effective Call = kunjungan ber-catatan Reorder ÷ total kunjungan · AR tertagih = nominal penagihan (Lunas/Sebagian) yang dicatat salesman.</div>
     </>
   );
 }
