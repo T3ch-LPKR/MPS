@@ -37,15 +37,16 @@ function ymd(d: Date) {
 async function VisitBoard({ d }: { d: string }) {
   // kolom: salesman yang punya jadwal ATAU kunjungan hari itu
   const cols = await q<any>(`
-    WITH plan AS (SELECT emp_id, count(*) n FROM sjp_schedule WHERE tgl=$1 GROUP BY emp_id),
+    WITH plan AS (SELECT emp_id, count(*) n,
+                         count(*) FILTER (WHERE EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)) done
+                  FROM sjp_schedule s WHERE tgl=$1 GROUP BY emp_id),
          vis  AS (SELECT emp_id,
-                         count(*) FILTER (WHERE sched_id IS NOT NULL) done,
                          count(*) total,
                          count(*) FILTER (WHERE is_oos) oos
                   FROM sjp_visit_log WHERE tgl=$1 GROUP BY emp_id)
     SELECT e.emp_id, e.emp_name,
            COALESCE(p.n,0)     AS plan,
-           COALESCE(v.done,0)  AS realisasi,
+           COALESCE(p.done,0)  AS realisasi,
            COALESCE(v.total,0) AS total_visit,
            COALESCE(v.oos,0)   AS oos
     FROM sjp_employee e

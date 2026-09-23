@@ -66,6 +66,14 @@ export async function POST(req: NextRequest) {
     if (dup) return NextResponse.json({ ok: true, dedup: true });
   }
 
+  // Satu jadwal = satu check-in. Menjaga Realisasi tidak pernah melebihi Plan, sekaligus
+  // menahan submit ganda (tombol ditekan 2x / replay antrean offline dgn uid berbeda).
+  // Balas ok:true supaya item antrean offline tetap dibuang, tidak menggantung selamanya.
+  if (sched_id) {
+    const sudah = await q1(`SELECT 1 FROM sjp_visit_log WHERE sched_id=$1`, [sched_id]);
+    if (sudah) return NextResponse.json({ ok: true, dedup: true });
+  }
+
   // OOS prospek baru
   const newProspekName = String(b?.prospek_nama || "").trim();
   if (is_oos && !cust_code && newProspekName) {

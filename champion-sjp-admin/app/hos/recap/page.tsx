@@ -17,7 +17,8 @@ export default async function Recap({ searchParams }: { searchParams: { m?: stri
       (SELECT count(*) FROM sjp_visit_log WHERE tgl BETWEEN $1 AND $2 AND is_effective_call) eff,
       (SELECT count(*) FROM sjp_visit_log WHERE tgl BETWEEN $1 AND $2 AND is_oos) oos,
       (SELECT count(*) FROM sjp_schedule WHERE tgl BETWEEN $1 AND $2) plan,
-      (SELECT count(*) FROM sjp_visit_log WHERE tgl BETWEEN $1 AND $2 AND sched_id IS NOT NULL) done,
+      (SELECT count(*) FROM sjp_schedule s WHERE s.tgl BETWEEN $1 AND $2
+         AND EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)) done,
       (SELECT count(*) FROM sjp_visit_log v
         WHERE v.tgl BETWEEN $1 AND $2
           AND EXISTS (SELECT 1 FROM sjp_lov l WHERE l.lov_id = ANY(COALESCE(v.catatan_lov_ids, ARRAY[v.catatan_lov_id])) AND l.kode='LOV-07')) ar_follow
@@ -25,13 +26,14 @@ export default async function Recap({ searchParams }: { searchParams: { m?: stri
 
   const trend = await q<any>(`
     SELECT s.tgl::text tgl, count(*) plan,
-      (SELECT count(*) FROM sjp_visit_log v WHERE v.tgl=s.tgl AND v.sched_id IS NOT NULL) done
+      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)) done
     FROM sjp_schedule s WHERE s.tgl BETWEEN $1 AND $2 GROUP BY s.tgl ORDER BY s.tgl`, [first, last]);
 
   const sm = await q<any>(`
     SELECT e.emp_id, e.emp_name,
       (SELECT count(*) FROM sjp_schedule s WHERE s.emp_id=e.emp_id AND s.tgl BETWEEN $1 AND $2) plan,
-      (SELECT count(*) FROM sjp_visit_log v WHERE v.emp_id=e.emp_id AND v.sched_id IS NOT NULL AND v.tgl BETWEEN $1 AND $2) done
+      (SELECT count(*) FROM sjp_schedule s WHERE s.emp_id=e.emp_id AND s.tgl BETWEEN $1 AND $2
+         AND EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)) done
     FROM sjp_employee e WHERE e.is_salesman`, [first, last]);
   const ranked = sm.filter((r) => Number(r.plan) > 0).map((r) => ({ ...r, comp: pct(Number(r.done), Number(r.plan)) })).sort((a, b) => b.comp - a.comp);
   const top = ranked.slice(0, 3);

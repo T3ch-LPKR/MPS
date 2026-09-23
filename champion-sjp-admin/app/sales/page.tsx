@@ -57,7 +57,9 @@ export default async function SalesHome() {
     LEFT JOIN sjp_assignment a ON a.cust_code=s.cust_code AND a.emp_id=s.emp_id
     LEFT JOIN sjp_customer_geo g ON g.cust_code=s.cust_code
     LEFT JOIN sjp_customer_ar ar ON ar.cust_code=s.cust_code
-    LEFT JOIN sjp_visit_log v ON v.sched_id = s.sched_id
+    -- LATERAL + LIMIT 1: satu jadwal dengan >1 check-in tidak menggandakan baris daftar
+    LEFT JOIN LATERAL (SELECT v.visit_id FROM sjp_visit_log v WHERE v.sched_id = s.sched_id
+                       ORDER BY v.checkin_dt LIMIT 1) v ON true
     WHERE s.emp_id = $1 AND s.tgl = CURRENT_DATE
     ORDER BY (v.visit_id IS NOT NULL OR s.status='DONE') ASC, c.cust_name ASC`, [emp]);
   } catch {
@@ -70,7 +72,8 @@ export default async function SalesHome() {
     ach = await q1<any>(`
     SELECT
       (SELECT count(*) FROM sjp_schedule  WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3) AS plan,
-      (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND sched_id IS NOT NULL) AS done,
+      (SELECT count(*) FROM sjp_schedule s WHERE s.emp_id=$1 AND s.tgl BETWEEN $2 AND $3
+         AND EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)) AS done,
       (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3) AS visit,
       (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND is_effective_call) AS eff,
       (SELECT count(*) FROM sjp_visit_log WHERE emp_id=$1 AND tgl BETWEEN $2 AND $3 AND is_oos) AS oos,

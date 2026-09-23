@@ -51,6 +51,12 @@ export async function submitCheckin(_prev: any, formData: FormData) {
   if (!catatan_lov_id) return { error: "Pilih catatan kunjungan." };
   if (is_oos && !oos_lov_id) return { error: "Pilih alasan luar jadwal (OOS)." };
 
+  // Satu jadwal = satu check-in (cegah submit ganda; Realisasi tak boleh > Plan).
+  if (sched_id) {
+    const sudah = await q1(`SELECT 1 FROM sjp_visit_log WHERE sched_id=$1`, [sched_id]);
+    if (sudah) return { error: "Kunjungan untuk jadwal ini sudah tercatat." };
+  }
+
   // OOS prospek baru (belum ada di master)
   const newProspekName = String(formData.get("prospek_nama") || "").trim();
   if (is_oos && !cust_code && newProspekName) {

@@ -38,7 +38,8 @@ export default async function HosOverview({ searchParams }: { searchParams: { d?
   const k = await q1<any>(`
     SELECT
       (SELECT count(*) FROM sjp_schedule WHERE tgl=$1) AS plan,
-      (SELECT count(*) FROM sjp_visit_log WHERE tgl=$1 AND sched_id IS NOT NULL) AS realisasi,
+      (SELECT count(*) FROM sjp_schedule s WHERE s.tgl=$1
+         AND EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)) AS realisasi,
       (SELECT count(*) FROM sjp_visit_log WHERE tgl=$1) AS visit,
       (SELECT count(*) FROM sjp_visit_log WHERE tgl=$1 AND is_effective_call) AS eff,
       (SELECT count(*) FROM sjp_visit_log WHERE tgl=$1 AND is_oos) AS oos
@@ -47,7 +48,8 @@ export default async function HosOverview({ searchParams }: { searchParams: { d?
   const rows = await q<any>(`
     SELECT e.emp_id, e.emp_name,
       (SELECT count(*) FROM sjp_schedule s WHERE s.emp_id=e.emp_id AND s.tgl=$1) AS plan,
-      (SELECT count(*) FROM sjp_visit_log v WHERE v.emp_id=e.emp_id AND v.tgl=$1 AND v.sched_id IS NOT NULL) AS done,
+      (SELECT count(*) FROM sjp_schedule s WHERE s.emp_id=e.emp_id AND s.tgl=$1
+         AND EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)) AS done,
       (SELECT count(*) FROM sjp_visit_log v WHERE v.emp_id=e.emp_id AND v.tgl=$1) AS visit
     FROM sjp_employee e WHERE e.is_salesman
   `, [d]);

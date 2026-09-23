@@ -46,15 +46,16 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
 
   // 2) Kunjungan terlewat (jadwal lampau tanpa visit; MISSED tak tersimpan → diturunkan)
   const missCount = await q1<any>(`
-    SELECT count(*) n FROM sjp_schedule s LEFT JOIN sjp_visit_log v ON v.sched_id=s.sched_id
-    WHERE s.tgl BETWEEN $1 AND LEAST($2::date, CURRENT_DATE - 1) AND v.visit_id IS NULL AND ($3='' OR s.emp_id=$3)`, [first, last, femp]);
+    SELECT count(*) n FROM sjp_schedule s
+    WHERE s.tgl BETWEEN $1 AND LEAST($2::date, CURRENT_DATE - 1) AND ($3='' OR s.emp_id=$3)
+      AND NOT EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)`, [first, last, femp]);
   const missed = await q<any>(`
     SELECT s.tgl::text tgl, e.emp_name, c.cust_name
     FROM sjp_schedule s
      JOIN sjp_employee e ON e.emp_id=s.emp_id
      JOIN sjp_customer c ON c.cust_code=s.cust_code
-     LEFT JOIN sjp_visit_log v ON v.sched_id=s.sched_id
-    WHERE s.tgl BETWEEN $1 AND LEAST($2::date, CURRENT_DATE - 1) AND v.visit_id IS NULL AND ($3='' OR s.emp_id=$3)
+    WHERE s.tgl BETWEEN $1 AND LEAST($2::date, CURRENT_DATE - 1) AND ($3='' OR s.emp_id=$3)
+      AND NOT EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)
     ORDER BY s.tgl DESC, e.emp_name LIMIT 100`, [first, last, femp]);
 
   // 3a) Absensi belum lengkap (hari lampau)

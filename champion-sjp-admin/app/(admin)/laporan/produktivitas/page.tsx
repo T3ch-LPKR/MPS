@@ -26,10 +26,19 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
   const femp = searchParams.femp || "";
   const salesmen = await q<any>(`SELECT emp_id, emp_name FROM sjp_employee WHERE is_salesman ORDER BY emp_name`);
 
+  // Realisasi dihitung DARI SISI JADWAL (bukan dari visit_log):
+  //  - tidak bisa > plan walau ada check-in dobel pada sched_id yang sama;
+  //  - terikat tanggal JADWAL (s.tgl), bukan tanggal check-in;
+  //  - kebal sched_id "yatim" (jadwal sudah dihapus, kunjungannya masih ada).
+  // Kunjungan yatim tetap terlihat di kolom Kunjungan + catatan kaki "tanpa jadwal".
   const rows = await q<any>(`
     SELECT e.emp_id, e.emp_name,
      (SELECT count(*) FROM sjp_schedule  s WHERE s.emp_id=e.emp_id AND s.tgl BETWEEN $1 AND $2) plan,
-     (SELECT count(*) FROM sjp_visit_log v WHERE v.emp_id=e.emp_id AND v.tgl BETWEEN $1 AND $2 AND v.sched_id IS NOT NULL) done,
+     (SELECT count(*) FROM sjp_schedule  s WHERE s.emp_id=e.emp_id AND s.tgl BETWEEN $1 AND $2
+        AND EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id = s.sched_id)) done,
+     (SELECT count(*) FROM sjp_visit_log v WHERE v.emp_id=e.emp_id AND v.tgl BETWEEN $1 AND $2
+        AND v.sched_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM sjp_schedule s WHERE s.sched_id = v.sched_id)) orphan,
      (SELECT count(*) FROM sjp_visit_log v WHERE v.emp_id=e.emp_id AND v.tgl BETWEEN $1 AND $2) visit,
      (SELECT count(*) FROM sjp_visit_log v WHERE v.emp_id=e.emp_id AND v.tgl BETWEEN $1 AND $2 AND v.is_effective_call) eff,
      (SELECT count(*) FROM sjp_visit_log v WHERE v.emp_id=e.emp_id AND v.tgl BETWEEN $1 AND $2 AND v.is_oos) oos,
@@ -45,8 +54,8 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
   const T = rows.reduce((a: any, r: any) => ({
     plan: a.plan + num(r.plan), done: a.done + num(r.done), visit: a.visit + num(r.visit),
     eff: a.eff + num(r.eff), oos: a.oos + num(r.oos), ar_follow: a.ar_follow + num(r.ar_follow),
-    ar_amount: a.ar_amount + num(r.ar_amount),
-  }), { plan: 0, done: 0, visit: 0, eff: 0, oos: 0, ar_follow: 0, ar_amount: 0 });
+    ar_amount: a.ar_amount + num(r.ar_amount), orphan: a.orphan + num(r.orphan),
+  }), { plan: 0, done: 0, visit: 0, eff: 0, oos: 0, ar_follow: 0, ar_amount: 0, orphan: 0 });
 
   const tableRows = rows.map((r: any) => {
     const plan = num(r.plan), done = num(r.done), visit = num(r.visit);
@@ -119,7 +128,13 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
       <div className="card p-4">
         <SortableTable columns={cols} rows={tableRows} initial={{ key: "comp", dir: "desc" }} empty="Tidak ada salesman." />
       </div>
-      <div className="text-[11px] text-mut mt-2">Klik judul kolom untuk mengurutkan. Compliance = Realisasi ÷ Plan · Effective Call = kunjungan ber-catatan Reorder ÷ total kunjungan · AR tertagih = nominal penagihan (Lunas/Sebagian) yang dicatat salesman.</div>
+      <div className="text-[11px] text-mut mt-2">Klik judul kolom untuk mengurutkan. Compliance = jadwal yang sudah di-check-in ÷ total jadwal (maksimal 100%) · Effective Call = kunjungan ber-catatan Reorder ÷ total kunjungan · AR tertagih = nominal penagihan (Lunas/Sebagian) yang dicatat salesman.</div>
+      {T.orphan > 0 ? (
+        <div className="text-[11px] text-warn mt-1">
+          ⚠ {T.orphan} kunjungan pada periode ini menunjuk jadwal yang sudah tidak ada di tabel jadwal (baris jadwal terhapus).
+          Kunjungan tetap dihitung pada kolom Kunjungan, tetapi tidak bisa dipasangkan ke Plan — periksa penghapusan data jadwal.
+        </div>
+      ) : null}
     </>
   );
 }

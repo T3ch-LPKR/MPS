@@ -26,8 +26,8 @@ export default async function Peta({ searchParams }: { searchParams: { emp?: str
     SELECT g.lat, g.lng, c.cust_name label
     FROM sjp_schedule s JOIN sjp_customer c ON c.cust_code=s.cust_code
     JOIN sjp_customer_geo g ON g.cust_code=s.cust_code
-    LEFT JOIN sjp_visit_log v ON v.sched_id=s.sched_id
-    WHERE s.emp_id=$1 AND s.tgl=$2 AND v.visit_id IS NULL`, [emp, d]);
+    WHERE s.emp_id=$1 AND s.tgl=$2
+      AND NOT EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)`, [emp, d]);
 
   const points = [
     ...visited.map((r: any) => ({ lat: Number(r.lat), lng: Number(r.lng), label: r.label, type: "done" as const })),
