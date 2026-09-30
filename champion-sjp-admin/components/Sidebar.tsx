@@ -18,6 +18,7 @@ const GROUPS: { title: string | null; items: { href: string; label: string; icon
     { href: "/prospek", label: "Prospek", icon: "◎" },
   ]},
   { title: "Laporan", items: [
+    { href: "/laporan/dashboard", label: "Dashboard SJP", icon: "▥" },
     { href: "/laporan/produktivitas", label: "Produktivitas", icon: "📈" },
     { href: "/laporan/issue", label: "Issue Lapangan", icon: "⚠" },
   ]},

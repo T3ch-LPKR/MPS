@@ -35,6 +35,9 @@ export default function PeriodFilter({
           ))}
         </select>
       </div>
+      {/* pertahankan drill-down Dashboard SJP saat ganti periode/salesman (nilai tak sah dibuang resolveDrill) */}
+      {sp.day ? <input type="hidden" name="day" value={sp.day} /> : null}
+      {sp.lov ? <input type="hidden" name="lov" value={sp.lov} /> : null}
       <button className="btn btn-pri btn-sm" type="submit">Terapkan</button>
       <Link href={action} className="btn btn-sm">Reset</Link>
       <div className="w-full text-xs text-mut">Periode aktif: <b>{label}</b> <span className="opacity-70">(isi Dari &amp; Sampai untuk rentang tanggal; kosongkan untuk memakai Bulan)</span></div>

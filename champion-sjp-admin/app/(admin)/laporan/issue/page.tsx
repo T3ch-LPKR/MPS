@@ -1,22 +1,12 @@
-import Link from "next/link";
 import { q, q1 } from "@/lib/db";
 import { resolvePeriod, type PeriodSP } from "../period";
 import PeriodFilter from "../PeriodFilter";
 import SortableTable, { type Col } from "../SortableTable";
 import BarChart, { type BarDatum } from "../Charts";
 import KpiStrip from "../KpiStrip";
+import Tabs from "../Tabs";
 
 export const dynamic = "force-dynamic";
-
-
-function Tabs() {
-  return (
-    <div className="flex gap-2 mb-4 text-sm">
-      <Link href="/laporan/produktivitas" className="btn btn-sm">Produktivitas</Link>
-      <Link href="/laporan/issue" className="btn btn-pri btn-sm">Issue Lapangan</Link>
-    </div>
-  );
-}
 
 export default async function IssuePage({ searchParams }: { searchParams: PeriodSP }) {
   const { first, last, label } = resolvePeriod(searchParams);
@@ -89,7 +79,7 @@ export default async function IssuePage({ searchParams }: { searchParams: Period
     <>
       <div className="mb-1 text-xl font-bold">Laporan Issue Lapangan</div>
       <div className="text-sm text-mut mb-4">Temuan yang perlu ditindaklanjuti dari kunjungan salesman</div>
-      <Tabs />
+      <Tabs active="/laporan/issue" />
       <PeriodFilter action="/laporan/issue" sp={searchParams} salesmen={salesmen} label={label} />
 
       <KpiStrip items={[

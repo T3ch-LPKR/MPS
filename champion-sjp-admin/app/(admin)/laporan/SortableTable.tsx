@@ -6,7 +6,8 @@ export type Col = {
   key: string;
   label: string;
   align?: "left" | "center" | "right";
-  fmt?: "text" | "int" | "pct" | "rp" | "date" | "datetime" | "pill" | "tag" | "bar";
+  fmt?: "text" | "int" | "pct" | "rp" | "date" | "datetime" | "pill" | "tag" | "bar" | "mn" | "mnbar";
+  color?: string; // warna teks sel (hex), utk meniru warna kolom Power BI
 };
 
 const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
@@ -16,12 +17,13 @@ const alignCls = (a?: string) => (a === "right" ? "text-right" : a === "center" 
 // Tabel dengan sort klik header (client-side). rows = objek plain (nilai numerik untuk sort).
 // Untuk fmt "pill" (compliance %), warna tone diambil dari row["__tone_"+key].
 export default function SortableTable({
-  columns, rows, initial, empty = "Tidak ada data.",
+  columns, rows, initial, empty = "Tidak ada data.", head,
 }: {
   columns: Col[];
   rows: any[];
   initial?: { key: string; dir: "asc" | "desc" };
   empty?: string;
+  head?: "teal"; // header teal Power BI (#00586B, teks putih, sticky saat container scroll)
 }) {
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>(initial || { key: columns[0].key, dir: "asc" });
 
@@ -62,17 +64,34 @@ export default function SortableTable({
       );
     }
     if (c.fmt === "tag") return v ? <span className="pill p-warn">{v}</span> : "—";
+    // "mn": angka juta ala PBI (994M); "mnbar": + data bar (lebar dari row.__pct_<key>, 0–100)
+    if (c.fmt === "mn" || c.fmt === "mnbar") {
+      const num = Number(v) || 0;
+      const disp = num === 0 ? "" : num >= 1e9 ? `${(num / 1e9).toLocaleString("id", { maximumFractionDigits: 1 })}B` : `${Math.round(num / 1e6)}M`;
+      if (c.fmt === "mn") return disp || "—";
+      const w = Math.max(0, Math.min(100, Number(row["__pct_" + c.key]) || 0));
+      return (
+        <div className="flex items-center gap-1.5 min-w-[70px]">
+          <div className="flex-1 h-2 rounded-sm bg-line overflow-hidden">
+            <div className="h-full rounded-sm" style={{ width: `${w}%`, background: c.color || "#70AD47" }} />
+          </div>
+          <span className="tabular-nums text-xs w-11 text-right">{disp}</span>
+        </div>
+      );
+    }
     return v ?? "—";
   };
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
-        <thead>
+        <thead className={head === "teal" ? "sticky top-0 z-10" : ""}>
           <tr>
             {columns.map((c) => (
               <th key={c.key} onClick={() => click(c.key)}
-                className={`th cursor-pointer select-none hover:text-brand ${alignCls(c.align)}`}>
+                className={head === "teal"
+                  ? `text-[11px] uppercase tracking-wide font-semibold px-3 py-2.5 whitespace-nowrap bg-[#00586B] text-white cursor-pointer select-none hover:bg-[#00465a] ${alignCls(c.align)}`
+                  : `th cursor-pointer select-none hover:text-brand ${alignCls(c.align)}`}>
                 {c.label}
                 <span className="text-[10px]">{sort.key === c.key ? (sort.dir === "asc" ? " ▲" : " ▼") : " ⇅"}</span>
               </th>
@@ -81,9 +100,13 @@ export default function SortableTable({
         </thead>
         <tbody>
           {sorted.map((row, i) => (
-            <tr key={row.__key ?? i} className="hover:bg-[#fafafa]">
+            <tr key={row.__key ?? i}
+              className={`hover:bg-[#fafafa] ${row.__href ? "cursor-pointer" : ""}`}
+              onClick={row.__href ? () => { window.location.href = row.__href; } : undefined}>
               {columns.map((c) => (
-                <td key={c.key} className={`td ${alignCls(c.align)} ${c.fmt === "rp" ? "tabular-nums" : ""} ${c.key === columns[0].key ? "font-semibold" : ""}`}>
+                <td key={c.key}
+                  style={c.color && c.fmt !== "mnbar" ? { color: c.color } : undefined}
+                  className={`td ${alignCls(c.align)} ${c.fmt === "rp" ? "tabular-nums" : ""} ${c.key === columns[0].key ? "font-semibold" : ""}`}>
                   {cell(c, row)}
                 </td>
               ))}

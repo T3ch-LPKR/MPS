@@ -1,25 +1,16 @@
-import Link from "next/link";
 import { q } from "@/lib/db";
 import { resolvePeriod, type PeriodSP } from "../period";
 import PeriodFilter from "../PeriodFilter";
 import SortableTable, { type Col } from "../SortableTable";
 import { DistBar } from "../Charts";
 import KpiStrip from "../KpiStrip";
+import Tabs from "../Tabs";
 
 export const dynamic = "force-dynamic";
 
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 const rp = (n: any) => "Rp " + Number(n || 0).toLocaleString("id");
 const compTone = (p: number, plan: number) => (plan === 0 ? "p-mut" : p >= 80 ? "p-ok" : p >= 50 ? "p-warn" : "p-bad");
-
-function Tabs() {
-  return (
-    <div className="flex gap-2 mb-3 text-sm">
-      <Link href="/laporan/produktivitas" className="btn btn-pri btn-sm">Produktivitas</Link>
-      <Link href="/laporan/issue" className="btn btn-sm">Issue Lapangan</Link>
-    </div>
-  );
-}
 
 export default async function ProduktivitasPage({ searchParams }: { searchParams: PeriodSP }) {
   const { first, last, label } = resolvePeriod(searchParams);
@@ -94,7 +85,7 @@ export default async function ProduktivitasPage({ searchParams }: { searchParams
     <>
       <div className="mb-1 text-xl font-bold">Laporan Produktivitas Salesman</div>
       <div className="text-sm text-mut mb-3">Ringkasan kinerja kunjungan per salesman</div>
-      <Tabs />
+      <Tabs active="/laporan/produktivitas" />
       <PeriodFilter action="/laporan/produktivitas" sp={searchParams} salesmen={salesmen} label={label} />
 
       <KpiStrip items={[

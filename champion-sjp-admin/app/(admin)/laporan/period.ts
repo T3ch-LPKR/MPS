@@ -1,6 +1,6 @@
 // Helper periode laporan: default bulan berjalan (WIB), atau rentang tanggal bila from&to diisi.
 
-export type PeriodSP = { m?: string; from?: string; to?: string; femp?: string };
+export type PeriodSP = { m?: string; from?: string; to?: string; femp?: string; day?: string; lov?: string };
 
 const isYmd = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const isYm = (s?: string) => !!s && /^\d{4}-\d{2}$/.test(s);
@@ -30,4 +30,12 @@ export function resolvePeriod(sp: PeriodSP): {
   const first = `${m}-01`;
   const last = `${m}-${String(new Date(yy, mm, 0).getDate()).padStart(2, "0")}`;
   return { first, last, mode: "month", m, label: `${BULAN[mm - 1]} ${yy}` };
+}
+
+// Drill-down Dashboard SJP: ?day= (harus di dalam periode) & ?lov= (lov_id catatan). Nilai tak sah diabaikan.
+export function resolveDrill(sp: PeriodSP, first: string, last: string): { day: string | null; lov: number | null } {
+  const day = isYmd(sp.day) && sp.day! >= first && sp.day! <= last ? sp.day! : null;
+  const n = Number(sp.lov);
+  const lov = Number.isInteger(n) && n > 0 ? n : null;
+  return { day, lov };
 }
