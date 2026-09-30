@@ -7,6 +7,7 @@ import KpiStrip from "../KpiStrip";
 import Tabs from "../Tabs";
 import TrendChart, { type TrendRow } from "../TrendChart";
 import NotesMatrix, { type NoteRow } from "../NotesMatrix";
+import { DETAIL_SELECT } from "../detailSql";
 
 export const dynamic = "force-dynamic";
 
@@ -98,21 +99,8 @@ export default async function DashboardSJPPage({ searchParams }: { searchParams:
       GROUP BY 1,2,3 ORDER BY n DESC`,
       [f, l, femp]),
 
-    // ---- Detail catatan kunjungan (AR hanya bila memang penagihan tercatat) ----
-    q<any>(`
-      SELECT v.visit_id, v.tgl::text tgl, to_char(v.checkin_dt,'HH24:MI') jam, e.emp_name,
-       COALESCE(c.cust_name, p.nama_usaha, v.cust_code, v.prospek_id) outlet,
-       (SELECT string_agg(lv.teks, ', ' ORDER BY lv.kode) FROM sjp_lov lv
-          WHERE lv.lov_id = ANY(COALESCE(v.catatan_lov_ids, ARRAY[v.catatan_lov_id])) AND lv.tipe='CATATAN') catatan,
-       v.free_text, CASE WHEN v.ar_collect IS NOT NULL THEN v.ar_amount END ar,
-       count(*) OVER () total
-      FROM sjp_visit_log v
-       JOIN sjp_employee e ON e.emp_id = v.emp_id AND e.is_salesman
-       LEFT JOIN sjp_customer c ON c.cust_code = v.cust_code
-       LEFT JOIN sjp_prospect p ON p.prospek_id = v.prospek_id
-      WHERE v.tgl BETWEEN $1 AND $2 AND ($3='' OR v.emp_id=$3) AND ${LOV_V}
-      ORDER BY v.checkin_dt DESC LIMIT 500`,
-      [f, l, femp, lov]),
+    // ---- Detail catatan kunjungan (SQL bersama dgn route export Excel; AR hanya bila penagihan tercatat) ----
+    q<any>(`${DETAIL_SELECT} LIMIT 500`, [f, l, femp, lov]),
   ]);
 
   const K = {
@@ -244,9 +232,18 @@ export default async function DashboardSJPPage({ searchParams }: { searchParams:
 
         <div className="relative flex-1 min-w-0">
           <div className="card p-4 flex flex-col lg:absolute lg:inset-0 max-lg:max-h-[560px]">
-            <div className="flex items-baseline justify-between mb-2 shrink-0">
+            <div className="flex items-baseline justify-between gap-3 mb-2 shrink-0">
               <div className="text-[13px] font-bold">Detail Catatan Kunjungan</div>
-              <div className="text-[11px] text-mut">{detailTotal > detailRows.length ? `menampilkan ${detailRows.length} dari ${detailTotal}` : `${detailRows.length} kunjungan`}</div>
+              <div className="flex items-baseline gap-3">
+                <div className="text-[11px] text-mut">{detailTotal > detailRows.length ? `menampilkan ${detailRows.length} dari ${detailTotal}` : `${detailRows.length} kunjungan`}</div>
+                {/* unduh SEMUA kunjungan satu periode penuh (ikut filter periode & salesman,
+                    mengabaikan drill klik tanggal/catatan dan batas 500 baris tampilan) */}
+                <a href={`/api/laporan/sjp-detail-xlsx${(() => {
+                  const p = new URLSearchParams(Object.fromEntries(Object.entries(baseParams).filter(([k]) => k !== "day" && k !== "lov"))).toString();
+                  return p ? "?" + p : "";
+                })()}`}
+                  className="btn btn-sm" download>⬇ Export Excel</a>
+              </div>
             </div>
             {/* satu-satunya kontainer scroll (x+y) supaya thead sticky menempel benar */}
             <div className="flex-1 min-h-0 overflow-auto">
