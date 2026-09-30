@@ -223,8 +223,10 @@ export default async function DashboardSJPPage({ searchParams }: { searchParams:
         <TrendChart rows={dailyRows} params={dropKey("day")} activeDay={day} lovActive={!!lov} />
       </div>
 
-      <div className="grid lg:grid-cols-[420px_1fr] gap-4 items-start">
-        <div className="grid gap-4 min-w-0">
+      {/* Kiri: Kinerja Salesman + Catatan Kunjungan bertumpuk. Kanan: kartu detail absolute-in-relative,
+          tingginya SELALU mengikuti tinggi kolom kiri (memanjang sampai bawah, tidak bisa menimpa). */}
+      <div className="flex flex-col lg:flex-row gap-4 items-stretch">
+        <div className="flex flex-col gap-4 lg:w-[440px] shrink-0 min-w-0">
           <div className="card p-4">
             <div className="text-[13px] font-bold mb-2">Kinerja Salesman</div>
             <SortableTable columns={empCols} rows={empTable} initial={{ key: "onplan", dir: "desc" }} empty="Tidak ada data." />
@@ -240,13 +242,16 @@ export default async function DashboardSJPPage({ searchParams }: { searchParams:
           </div>
         </div>
 
-        <div className="card p-4 min-w-0">
-          <div className="flex items-baseline justify-between mb-2">
-            <div className="text-[13px] font-bold">Detail Catatan Kunjungan</div>
-            <div className="text-[11px] text-mut">{detailTotal > detailRows.length ? `menampilkan ${detailRows.length} dari ${detailTotal}` : `${detailRows.length} kunjungan`}</div>
-          </div>
-          <div className="max-h-[560px] overflow-y-auto">
-            <SortableTable columns={detailCols} rows={detailRows} initial={{ key: "tgl", dir: "desc" }} head="teal" empty="Tidak ada kunjungan." />
+        <div className="relative flex-1 min-w-0">
+          <div className="card p-4 flex flex-col lg:absolute lg:inset-0 max-lg:max-h-[560px]">
+            <div className="flex items-baseline justify-between mb-2 shrink-0">
+              <div className="text-[13px] font-bold">Detail Catatan Kunjungan</div>
+              <div className="text-[11px] text-mut">{detailTotal > detailRows.length ? `menampilkan ${detailRows.length} dari ${detailTotal}` : `${detailRows.length} kunjungan`}</div>
+            </div>
+            {/* satu-satunya kontainer scroll (x+y) supaya thead sticky menempel benar */}
+            <div className="flex-1 min-h-0 overflow-auto">
+              <SortableTable columns={detailCols} rows={detailRows} initial={{ key: "tgl", dir: "desc" }} head="teal" empty="Tidak ada kunjungan." />
+            </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // Chart kombinasi harian ala TrailingChart (Power BI): batang berkelompok + garis %,
@@ -41,6 +41,20 @@ export default function TrendChart({
   const router = useRouter();
   const [sel, setSel] = useState<string[]>(DEFAULT_SEL);
 
+  // lebar kontainer nyata -> chart mengisi penuh (tanpa sisa di kanan); SSR pakai fallback
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxW, setBoxW] = useState(1180);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((es) => {
+      const w = Math.floor(es[0]?.contentRect.width || 0);
+      if (w > 0) setBoxW(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const toggle = (k: string) =>
     setSel((s) => (s.includes(k) ? (s.length > 1 ? s.filter((x) => x !== k) : s) : [...s, k]));
   const allKeys = METRICS.map((m) => m.key);
@@ -65,7 +79,8 @@ export default function TrendChart({
   const H = 240, PADT = 24, PADB = 34, PADL = 8, PADR = 8;
   const plotH = H - PADT - PADB;
   const n = data.length;
-  const groupW = Math.max(26, Math.min(56, Math.floor(1180 / Math.max(1, n))));
+  // isi selebar kontainer; minimum 26px per hari -> di layar sempit tetap scroll horizontal
+  const groupW = Math.max(26, Math.floor((boxW - PADL - PADR) / Math.max(1, n)));
   const W = PADL + PADR + n * groupW;
   const barSlot = bars.length ? Math.max(3, Math.floor((groupW - 8) / bars.length)) : 0;
   const showBarLabel = barSlot >= 13;
@@ -95,7 +110,7 @@ export default function TrendChart({
       </div>
 
       {n === 0 ? <div className="text-sm text-mut">Tidak ada data pada periode ini.</div> : (
-        <div className="overflow-x-auto">
+        <div ref={boxRef} className="overflow-x-auto">
           <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="max-w-none" role="img" aria-label="Tren harian SJP">
             {/* garis dasar */}
             <line x1={PADL} y1={PADT + plotH} x2={W - PADR} y2={PADT + plotH} stroke="#e8eaee" strokeWidth={1} />

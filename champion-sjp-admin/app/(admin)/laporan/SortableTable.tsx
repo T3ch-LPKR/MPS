@@ -83,7 +83,9 @@ export default function SortableTable({
   };
 
   return (
-    <div className="overflow-x-auto">
+    // head="teal": scroll (x+y) disediakan kontainer parent agar thead sticky bekerja;
+    // mode default tetap membawa scroller horizontal sendiri.
+    <div className={head === "teal" ? "" : "overflow-x-auto"}>
       <table className="w-full border-collapse text-sm">
         <thead className={head === "teal" ? "sticky top-0 z-10" : ""}>
           <tr>
@@ -106,7 +108,7 @@ export default function SortableTable({
               {columns.map((c) => (
                 <td key={c.key}
                   style={c.color && c.fmt !== "mnbar" ? { color: c.color } : undefined}
-                  className={`td ${alignCls(c.align)} ${c.fmt === "rp" ? "tabular-nums" : ""} ${c.key === columns[0].key ? "font-semibold" : ""}`}>
+                  className={`td ${alignCls(c.align)} ${c.fmt === "rp" ? "tabular-nums" : ""} ${c.key === columns[0].key ? "font-semibold" : ""} ${head === "teal" && (c.fmt === "date" || c.fmt === "rp" || c.key === "jam") ? "whitespace-nowrap" : ""}`}>
                   {cell(c, row)}
                 </td>
               ))}
