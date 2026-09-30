@@ -154,6 +154,7 @@ export default async function DashboardSJPPage({ searchParams }: { searchParams:
   const detailRows = detailRaw.map((r: any) => ({
     __key: r.visit_id, tgl: r.tgl, jam: r.jam, emp_name: r.emp_name, outlet: r.outlet,
     catatan: r.catatan, free_text: r.free_text || "", ar: r.ar != null ? num(r.ar) : null,
+    kode: r.kode, // pembeda saat nama outlet kembar (cust_code / prospek_id)
   }));
   const detailTotal = num(detailRaw[0]?.total);
   const detailCols: Col[] = [
@@ -164,6 +165,7 @@ export default async function DashboardSJPPage({ searchParams }: { searchParams:
     { key: "catatan", label: "Catatan", align: "left" },
     { key: "free_text", label: "Notes", align: "left" },
     { key: "ar", label: "AR", align: "right", fmt: "rp" },
+    { key: "kode", label: "Kode", align: "left" },
   ];
 
   const fempName = salesmen.find((s: any) => s.emp_id === femp)?.emp_name;

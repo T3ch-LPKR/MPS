@@ -19,8 +19,9 @@ const GROUPS: { title: string | null; items: { href: string; label: string; icon
   ]},
   { title: "Laporan", items: [
     { href: "/laporan/dashboard", label: "Dashboard SJP", icon: "▥" },
-    { href: "/laporan/produktivitas", label: "Produktivitas", icon: "📈" },
-    { href: "/laporan/issue", label: "Issue Lapangan", icon: "⚠" },
+    // Produktivitas & Issue Lapangan disembunyikan dulu (halaman tetap bisa diakses via URL):
+    // { href: "/laporan/produktivitas", label: "Produktivitas", icon: "📈" },
+    // { href: "/laporan/issue", label: "Issue Lapangan", icon: "⚠" },
   ]},
   { title: "Komunikasi", items: [
     { href: "/berita", label: "Berita", icon: "📰" },

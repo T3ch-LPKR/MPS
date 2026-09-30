@@ -6,6 +6,7 @@ export const DETAIL_SELECT = `
        (SELECT string_agg(lv.teks, ', ' ORDER BY lv.kode) FROM sjp_lov lv
           WHERE lv.lov_id = ANY(COALESCE(v.catatan_lov_ids, ARRAY[v.catatan_lov_id])) AND lv.tipe='CATATAN') catatan,
        v.free_text, CASE WHEN v.ar_collect IS NOT NULL THEN v.ar_amount END ar,
+       COALESCE(v.cust_code, v.prospek_id) kode,
        count(*) OVER () total
       FROM sjp_visit_log v
        JOIN sjp_employee e ON e.emp_id = v.emp_id AND e.is_salesman

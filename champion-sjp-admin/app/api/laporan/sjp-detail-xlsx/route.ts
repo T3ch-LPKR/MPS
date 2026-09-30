@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     { header: "Catatan", key: "catatan", width: 36 },
     { header: "Notes", key: "free_text", width: 32 },
     { header: "AR", key: "ar", width: 14, style: { numFmt: "#,##0" } },
+    { header: "Kode", key: "kode", width: 18 },
   ];
   const head = ws.getRow(1);
   head.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -41,10 +42,11 @@ export async function GET(req: NextRequest) {
     ws.addRow({
       tgl: new Date(r.tgl), jam: r.jam, emp_name: r.emp_name, outlet: r.outlet,
       catatan: r.catatan, free_text: r.free_text || "", ar: r.ar != null ? Number(r.ar) : null,
+      kode: r.kode,
     });
   }
   ws.getColumn("tgl").numFmt = "dd-mmm-yy";
-  ws.autoFilter = { from: "A1", to: "G1" };
+  ws.autoFilter = { from: "A1", to: "H1" };
 
   const buf = await wb.xlsx.writeBuffer();
   const fname = `SJP_Detail_${label.replace(/[^\w-]+/g, "_")}${day ? `_${day}` : ""}${femp ? `_${femp}` : ""}.xlsx`;

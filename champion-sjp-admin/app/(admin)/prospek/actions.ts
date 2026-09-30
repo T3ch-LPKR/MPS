@@ -18,3 +18,10 @@ export async function arsipProspek(formData: FormData) {
   await q(`UPDATE sjp_prospect SET status='ARSIP' WHERE prospek_id=$1`, [id]);
   revalidatePath("/prospek");
 }
+
+// Kembalikan prospek dari arsip (hanya yang berstatus ARSIP; yang sudah TAUTKAN tidak tersentuh)
+export async function unarsipProspek(formData: FormData) {
+  const id = String(formData.get("prospek_id"));
+  await q(`UPDATE sjp_prospect SET status='BELUM' WHERE prospek_id=$1 AND status='ARSIP'`, [id]);
+  revalidatePath("/prospek");
+}
