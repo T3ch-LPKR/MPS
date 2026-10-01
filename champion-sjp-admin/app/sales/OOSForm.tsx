@@ -4,8 +4,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { enqueue } from "@/lib/offlineQueue";
+import OrderItemsSection, { EMPTY_ORDER, orderProblem, type OrderData } from "./OrderItemsSection";
 
-type Lov = { lov_id: number; kode: string; teks: string };
+type Lov = { lov_id: number; kode: string; teks: string; kategori?: string | null };
 type Cust = { cust_code: string; cust_name: string; area: string };
 
 function uid() {
@@ -28,6 +29,7 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
   const [arCollect, setArCollect] = useState<"" | "FULL" | "PARTIAL">("");
   const [arAmount, setArAmount] = useState("");
   const [isNew, setIsNew] = useState(false);
+  const [order, setOrder] = useState<OrderData>(EMPTY_ORDER);
   // prospek baru
   const [pNama, setPNama] = useState(""); const [pAlamat, setPAlamat] = useState("");
   const [pPic, setPPic] = useState(""); const [pHp, setPHp] = useState("");
@@ -95,7 +97,10 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
   const photoOk = photoMandatory ? !!photo : true;
   const canCollectAr = !isNew && !!sel; // hanya customer terdaftar yang punya AR
   const arPartialOk = arCollect !== "PARTIAL" || Number(arAmount) > 0;
-  const canSubmit = gpsReady && custOk && photoOk && lovIds.length > 0 && oosIds.length > 0 && arPartialOk && !submitting;
+  // form pembelian muncul saat catatan berkategori "Order" dipilih
+  const orderMode = catatanLov.some((l) => lovIds.includes(String(l.lov_id)) && l.kategori === "Order");
+  const orderErr = orderMode ? orderProblem(order) : null;
+  const canSubmit = gpsReady && custOk && photoOk && lovIds.length > 0 && oosIds.length > 0 && arPartialOk && !orderErr && !submitting;
 
   async function doSubmit() {
     if (!canSubmit) return;
@@ -107,6 +112,7 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
       ar_amount: canCollectAr && arCollect === "PARTIAL" ? Number(arAmount) : null,
       cust_code: !isNew && sel ? sel.cust_code : null,
       prospek_nama: isNew ? pNama.trim() : "", prospek_alamat: pAlamat, prospek_pic: pPic, prospek_hp: pHp,
+      order: orderMode ? order : null,
       lat: pos!.lat, lng: pos!.lng, accuracy: pos!.acc, photo,
     };
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -234,6 +240,10 @@ export default function OOSForm({ catatanLov, oosLov, photoMandatory = true }: {
           })}
         </div>
       </div>
+      {/* Input pembelian — hanya saat catatan berkategori Order dipilih */}
+      {orderMode ? <OrderItemsSection value={order} onChange={setOrder} /> : null}
+      {orderErr ? <div className="text-[11px] text-mut text-center">Pembelian: {orderErr}</div> : null}
+
       {/* Penagihan AR (opsional) — customer terdaftar */}
       {canCollectAr ? (
         <div>

@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { haversineMeters, GEOFENCE_M } from "@/lib/geo";
 import { getBoolSetting } from "@/lib/settings";
 import { uploadPhoto } from "@/lib/storage";
+import { parseOrder, saveOrder } from "@/lib/order";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,13 @@ export async function POST(req: NextRequest) {
   if (photoMandatory && !photoBuf) return err("Foto selfie wajib.");
   if (catatan_ids.length === 0) return err("Pilih catatan kunjungan.");
   if (is_oos && oos_ids.length === 0) return err("Pilih alasan luar jadwal (OOS).");
+
+  // Order: wajib bila ada catatan berkategori "Order" terpilih; angka dihitung ulang server.
+  const { order, error: orderErrMsg } = parseOrder(b?.order);
+  const orderLovRow = await q1(
+    `SELECT 1 FROM sjp_lov WHERE lov_id = ANY($1) AND kategori = 'Order'`, [catatan_ids]);
+  if (orderLovRow && !order) return err(orderErrMsg || "Isi item pembelian (catatan Order dipilih).");
+  if (b?.order != null && orderErrMsg) return err(orderErrMsg);
 
   // Dedup: kalau client_uid ini sudah tercatat -> anggap sukses (replay), jangan dobel.
   if (client_uid) {
@@ -134,6 +142,16 @@ export async function POST(req: NextRequest) {
   // konflik client_uid (sudah masuk barusan) -> anggap sukses, lewati side-effect
   if (!ins?.visit_id) return NextResponse.json({ ok: true, dedup: true });
   const visit_id = ins.visit_id;
+
+  // Simpan order (header + item + audit) satu transaksi. Aman dari replay: dedup di atas
+  // sudah keluar lebih awal sebelum titik ini.
+  if (order) {
+    await saveOrder({
+      visit_id, emp_id: emp, cust_code, prospek_id,
+      tgl: `${wibYmd(client_ts).slice(0, 4)}-${wibYmd(client_ts).slice(4, 6)}-${wibYmd(client_ts).slice(6, 8)}`,
+      order, by: s?.username || emp, action: "CREATE",
+    });
+  }
 
   if (photoBuf) {
     const path = await uploadPhoto(`visits/${emp}/${wibYmd(client_ts)}/${visit_id}.jpg`, photoBuf);

@@ -15,17 +15,21 @@ export default async function Drill({ params, searchParams }: { params: { emp: s
 
   const plan = await q<any>(`
     SELECT s.sched_id, s.cust_code, c.cust_name, s.jam_target::text jam,
-           (v.visit_id IS NOT NULL) AS visited, v.gps_valid, to_char(v.checkin_dt,'HH24:MI') jam_visit
+           (v.visit_id IS NOT NULL) AS visited, v.gps_valid, to_char(v.checkin_dt,'HH24:MI') jam_visit,
+           vo.total AS order_total
     FROM sjp_schedule s JOIN sjp_customer c ON c.cust_code=s.cust_code
     LEFT JOIN LATERAL (SELECT v.visit_id, v.gps_valid, v.checkin_dt FROM sjp_visit_log v
                        WHERE v.sched_id=s.sched_id ORDER BY v.checkin_dt LIMIT 1) v ON true
+    LEFT JOIN sjp_visit_order vo ON vo.visit_id = v.visit_id
     WHERE s.emp_id=$1 AND s.tgl=$2 ORDER BY (v.visit_id IS NOT NULL) ASC, c.cust_name ASC`, [emp, d]);
 
   const oos = await q<any>(`
     SELECT v.visit_id, COALESCE(c.cust_name,p.nama_usaha,v.cust_code,v.prospek_id) nama,
            to_char(v.checkin_dt,'HH24:MI') jam,
-           COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.oos_lov_ids)), ol.teks) alasan
+           COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.oos_lov_ids)), ol.teks) alasan,
+           vo.total AS order_total
     FROM sjp_visit_log v
+    LEFT JOIN sjp_visit_order vo ON vo.visit_id = v.visit_id
     LEFT JOIN sjp_customer c ON c.cust_code=v.cust_code
     LEFT JOIN sjp_prospect p ON p.prospek_id=v.prospek_id
     LEFT JOIN sjp_lov ol ON ol.lov_id=v.oos_lov_id
@@ -34,6 +38,8 @@ export default async function Drill({ params, searchParams }: { params: { emp: s
   const total = plan.length;
   const done = plan.filter((p) => p.visited).length;
   const eff = await q1<any>(`SELECT count(*) n FROM sjp_visit_log WHERE emp_id=$1 AND tgl=$2 AND is_effective_call`, [emp, d]);
+  const ord = await q1<any>(`SELECT count(*) n, COALESCE(SUM(total),0) amt FROM sjp_visit_order WHERE emp_id=$1 AND tgl=$2`, [emp, d]);
+  const mn = (n: number) => (!n ? "0" : n >= 1e9 ? `${(n / 1e9).toLocaleString("id", { maximumFractionDigits: 1 })}B` : n >= 1e6 ? `${Math.round(n / 1e6)}M` : n.toLocaleString("id"));
 
   return (
     <div className="p-4 space-y-3">
@@ -46,6 +52,7 @@ export default async function Drill({ params, searchParams }: { params: { emp: s
           <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-lg font-extrabold text-ok">{done}</div><div className="text-[10px] text-mut">Visit</div></div>
           <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-lg font-extrabold text-brand">{eff?.n ?? 0}</div><div className="text-[10px] text-mut">Eff.Call</div></div>
           <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-lg font-extrabold text-info">{oos.length}</div><div className="text-[10px] text-mut">OOS</div></div>
+          <div className="flex-1 bg-[#eef0f3] rounded-lg p-2 text-center"><div className="text-lg font-extrabold text-ok">{mn(Number(ord?.amt || 0))}</div><div className="text-[10px] text-mut">Order ({ord?.n ?? 0})</div></div>
         </div>
       </div>
 
@@ -57,7 +64,10 @@ export default async function Drill({ params, searchParams }: { params: { emp: s
               <div className={`w-7 h-7 rounded-full grid place-items-center text-xs font-extrabold text-white ${p.visited ? "bg-ok" : "bg-brand"}`}>{i + 1}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm truncate">{p.cust_name}</div>
-                <div className="text-[11px] text-mut">{p.jam ? p.jam.slice(0, 5) + " · " : ""}{p.visited ? `check-in ${p.jam_visit}` : "belum"}</div>
+                <div className="text-[11px] text-mut">
+                  {p.jam ? p.jam.slice(0, 5) + " · " : ""}{p.visited ? `check-in ${p.jam_visit}` : "belum"}
+                  {p.order_total != null ? <span className="text-ok font-semibold"> · 🛒 Rp {Number(p.order_total).toLocaleString("id")}</span> : null}
+                </div>
               </div>
               <span className={`pill ${p.visited ? "p-ok" : "p-mut"}`}>{p.visited ? "Selesai" : "Belum"}</span>
             </div>
@@ -70,7 +80,7 @@ export default async function Drill({ params, searchParams }: { params: { emp: s
           <div className="bg-white rounded-xl divide-y divide-line">
             {oos.map((o) => (
               <Link key={o.visit_id} href={`/hos/evidence/${o.visit_id}`} className="p-3 flex items-center gap-3">
-                <div className="flex-1 min-w-0"><div className="font-semibold text-sm truncate">{o.nama}</div><div className="text-[11px] text-mut">{o.jam} · {o.alasan}</div></div>
+                <div className="flex-1 min-w-0"><div className="font-semibold text-sm truncate">{o.nama}</div><div className="text-[11px] text-mut">{o.jam} · {o.alasan}{o.order_total != null ? <span className="text-ok font-semibold"> · 🛒 Rp {Number(o.order_total).toLocaleString("id")}</span> : null}</div></div>
                 <span className="pill p-info">OOS ›</span>
               </Link>
             ))}

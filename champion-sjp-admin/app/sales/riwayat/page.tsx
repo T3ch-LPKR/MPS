@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { q } from "@/lib/db";
 import { getSession } from "@/lib/session";
 
@@ -12,12 +13,15 @@ export default async function Riwayat() {
            v.is_oos, v.gps_valid, v.gps_distance_m, v.free_text, v.ar_collect, v.ar_amount,
            COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.catatan_lov_ids)), l.teks) AS catatan,
            COALESCE((SELECT string_agg(x.teks, ', ') FROM sjp_lov x WHERE x.lov_id = ANY(v.oos_lov_ids)), ol.teks) AS oos_alasan,
-           (v.photo IS NOT NULL OR v.photo_path IS NOT NULL) AS ada_foto
+           (v.photo IS NOT NULL OR v.photo_path IS NOT NULL) AS ada_foto,
+           o.order_id, o.total AS order_total,
+           (o.order_id IS NOT NULL AND v.tgl = (now() AT TIME ZONE 'Asia/Jakarta')::date) AS order_editable
     FROM sjp_visit_log v
     LEFT JOIN sjp_customer c ON c.cust_code=v.cust_code
     LEFT JOIN sjp_prospect p ON p.prospek_id=v.prospek_id
     LEFT JOIN sjp_lov l ON l.lov_id=v.catatan_lov_id
     LEFT JOIN sjp_lov ol ON ol.lov_id=v.oos_lov_id
+    LEFT JOIN sjp_visit_order o ON o.visit_id=v.visit_id
     WHERE v.emp_id=$1
     ORDER BY v.checkin_dt DESC LIMIT 50`, [emp]) : [];
 
@@ -47,6 +51,14 @@ export default async function Riwayat() {
           {r.ar_collect ? (
             <div className="mt-1">
               <span className="pill p-ok">💳 AR {r.ar_collect === "FULL" ? "Lunas" : "Sebagian"} · Rp {Number(r.ar_amount || 0).toLocaleString("id")}</span>
+            </div>
+          ) : null}
+          {r.order_id ? (
+            <div className="mt-1 flex items-center gap-2">
+              <span className="pill p-info">🛒 Order Rp {Number(r.order_total || 0).toLocaleString("id")}</span>
+              {r.order_editable ? (
+                <Link href={`/sales/order/${r.visit_id}`} className="text-xs text-brand underline font-semibold">✎ Edit order</Link>
+              ) : null}
             </div>
           ) : null}
         </div>

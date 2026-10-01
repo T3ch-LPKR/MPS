@@ -66,7 +66,7 @@ export default async function KunjunganDetail({ params }: { params: { id: string
   const ar = await q1<any>(`SELECT ar_outstanding, ar_overdue, invoice_count FROM sjp_customer_ar WHERE cust_code=$1`, [sched.cust_code]);
   const arDet = await q<any>(`SELECT trans_no, trans_date::text tgl, balance, aging_bucket, overdue_days FROM sjp_customer_ar_detail WHERE cust_code=$1 ORDER BY overdue_days DESC LIMIT 6`, [sched.cust_code]);
   const lo = await q1<any>(`SELECT last_order_date::text tgl, last_order_inv, last_order_amt, items_json FROM sjp_customer_lastorder WHERE cust_code=$1`, [sched.cust_code]);
-  const lov = await q<any>(`SELECT lov_id, kode, teks FROM sjp_lov WHERE tipe='CATATAN' AND is_active ORDER BY kode`);
+  const lov = await q<any>(`SELECT lov_id, kode, teks, kategori FROM sjp_lov WHERE tipe='CATATAN' AND is_active ORDER BY kode`);
   const photoMandatory = await getBoolSetting("photo_mandatory", true);
 
   const items = Array.isArray(lo?.items_json) ? lo.items_json : [];

@@ -21,7 +21,9 @@ export default async function Recap({ searchParams }: { searchParams: { m?: stri
          AND EXISTS (SELECT 1 FROM sjp_visit_log v WHERE v.sched_id=s.sched_id)) done,
       (SELECT count(*) FROM sjp_visit_log v
         WHERE v.tgl BETWEEN $1 AND $2
-          AND EXISTS (SELECT 1 FROM sjp_lov l WHERE l.lov_id = ANY(COALESCE(v.catatan_lov_ids, ARRAY[v.catatan_lov_id])) AND l.kode='LOV-07')) ar_follow
+          AND EXISTS (SELECT 1 FROM sjp_lov l WHERE l.lov_id = ANY(COALESCE(v.catatan_lov_ids, ARRAY[v.catatan_lov_id])) AND l.kode='LOV-07')) ar_follow,
+      (SELECT count(*) FROM sjp_visit_order WHERE tgl BETWEEN $1 AND $2) order_n,
+      (SELECT COALESCE(SUM(total),0) FROM sjp_visit_order WHERE tgl BETWEEN $1 AND $2) order_amt
   `, [first, last]);
 
   const trend = await q<any>(`
@@ -55,6 +57,7 @@ export default async function Recap({ searchParams }: { searchParams: { m?: stri
         <Box label="Total Kunjungan" val={tot?.visit ?? 0} sub={`+${tot?.oos ?? 0} OOS`} />
         <Box label="Effective Call" val={`${effPct}%`} sub={`${tot?.eff ?? 0} order`} />
         <Box label="AR Follow-up" val={tot?.ar_follow ?? 0} sub="kunjungan" />
+        <Box label="Total Orderan" val={`Rp ${Number(tot?.order_amt || 0).toLocaleString("id")}`} sub={`${tot?.order_n ?? 0} order`} />
       </div>
 
       <div className="text-[11px] uppercase tracking-wide text-mut font-bold px-1">Trend Compliance Harian</div>

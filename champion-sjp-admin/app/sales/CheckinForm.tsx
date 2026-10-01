@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haversineMeters, GEOFENCE_M } from "@/lib/geo";
 import { enqueue } from "@/lib/offlineQueue";
+import OrderItemsSection, { EMPTY_ORDER, orderProblem, type OrderData } from "./OrderItemsSection";
 
-type Lov = { lov_id: number; kode: string; teks: string };
+type Lov = { lov_id: number; kode: string; teks: string; kategori?: string | null };
 
 function uid() {
   try { return crypto.randomUUID(); } catch { return `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
@@ -30,9 +31,14 @@ export default function CheckinForm({
   const [freeText, setFreeText] = useState("");
   const [arCollect, setArCollect] = useState<"" | "FULL" | "PARTIAL">("");
   const [arAmount, setArAmount] = useState("");
+  const [order, setOrder] = useState<OrderData>(EMPTY_ORDER);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: "err" | "offline"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // form pembelian muncul saat ada catatan terpilih yang berkategori "Order"
+  const orderMode = catatanLov.some((l) => lovIds.includes(String(l.lov_id)) && l.kategori === "Order");
+  const orderErr = orderMode ? orderProblem(order) : null;
 
   useEffect(() => {
     if (!navigator.geolocation) { setGpsErr("Perangkat tak mendukung GPS."); return; }
@@ -83,11 +89,11 @@ export default function CheckinForm({
 
   const photoOk = photoMandatory ? !!photo : true;
   const arPartialOk = arCollect !== "PARTIAL" || Number(arAmount) > 0;
-  const canSubmit = gpsReady && photoOk && lovIds.length > 0 && arPartialOk && !submitting;
+  const canSubmit = gpsReady && photoOk && lovIds.length > 0 && arPartialOk && !orderErr && !submitting;
   const hasAr = arOutstanding != null && Number(arOutstanding) > 0;
 
   async function doSubmit() {
-    if (!gpsReady || !photoOk || lovIds.length === 0 || !arPartialOk || submitting) return;
+    if (!canSubmit) return;
     setSubmitting(true); setMsg(null);
     const payload = {
       client_uid: uid(), client_ts: new Date().toISOString(),
@@ -95,6 +101,7 @@ export default function CheckinForm({
       catatan_lov_ids: lovIds, free_text: freeText || null,
       ar_collect: arCollect || null,
       ar_amount: arCollect === "FULL" ? arOutstanding : arCollect === "PARTIAL" ? Number(arAmount) : null,
+      order: orderMode ? order : null,
       lat: pos!.lat, lng: pos!.lng, accuracy: pos!.acc, photo,
     };
 
@@ -190,6 +197,9 @@ export default function CheckinForm({
         </div>
       </div>
 
+      {/* Input pembelian — hanya saat catatan berkategori Order dipilih */}
+      {orderMode ? <OrderItemsSection value={order} onChange={setOrder} /> : null}
+
       {/* Penagihan AR (opsional) */}
       {hasAr ? (
         <div>
@@ -224,7 +234,7 @@ export default function CheckinForm({
 
       {!canSubmit && !submitting ? (
         <div className="text-[11px] text-mut text-center">
-          Lengkapi: {[!gpsReady ? "GPS" : null, (photoMandatory && !photo) ? "foto" : null, lovIds.length === 0 ? "catatan" : null].filter(Boolean).join(", ")}
+          Lengkapi: {[!gpsReady ? "GPS" : null, (photoMandatory && !photo) ? "foto" : null, lovIds.length === 0 ? "catatan" : null, orderErr ? `pembelian (${orderErr})` : null].filter(Boolean).join(", ")}
         </div>
       ) : null}
       <button type="button" onClick={doSubmit} disabled={!canSubmit}

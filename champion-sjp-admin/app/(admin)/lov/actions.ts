@@ -26,3 +26,11 @@ export async function toggleLov(formData: FormData) {
   await q(`UPDATE sjp_lov SET is_active = NOT is_active WHERE lov_id = $1`, [id]);
   revalidatePath("/lov");
 }
+
+// Tambah kategori LOV (master sjp_lov_kategori, dipakai dropdown form)
+export async function addKategori(formData: FormData) {
+  const nama = String(formData.get("nama") || "").trim();
+  if (!nama) return;
+  await q(`INSERT INTO sjp_lov_kategori (nama) VALUES ($1) ON CONFLICT (nama) DO NOTHING`, [nama]);
+  revalidatePath("/lov");
+}
