@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import PDFDocument from "pdfkit";
+import { q } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { resolvePeriod, type PeriodSP } from "@/app/(admin)/laporan/period";
 import { loadOrdersForPdf, renderSuratPesanan } from "@/lib/suratPesanan";
@@ -12,10 +13,15 @@ export async function GET(req: NextRequest) {
   if (!s || !["admin", "superadmin", "hos"].includes(s.role)) {
     return new NextResponse("unauthorized", { status: 401 });
   }
-  const sp = Object.fromEntries(req.nextUrl.searchParams.entries()) as PeriodSP;
+  const sp = Object.fromEntries(req.nextUrl.searchParams.entries()) as PeriodSP & { dl?: string };
   const { first, last, label } = resolvePeriod(sp);
   const femp = sp.femp || "";
-  const orders = await loadOrdersForPdf("o.tgl BETWEEN $1 AND $2 AND ($3='' OR o.emp_id=$3)", [first, last, femp]);
+  // ?dl=belum|sudah -> hanya order dgn status download tsb (dipakai tombol "Download Semua" saat filter aktif)
+  const dl = sp.dl === "sudah" || sp.dl === "belum" ? sp.dl : "semua";
+  const orders = await loadOrdersForPdf(
+    `o.tgl BETWEEN $1 AND $2 AND ($3='' OR o.emp_id=$3)
+     AND ($4 = 'semua' OR ($4 = 'sudah') = (o.pdf_downloaded_at IS NOT NULL))`,
+    [first, last, femp, dl]);
   if (orders.length === 0) return new NextResponse("Tidak ada order pada periode ini.", { status: 404 });
 
   const doc = new PDFDocument({ size: "A4", margin: 0, autoFirstPage: false });
@@ -28,6 +34,10 @@ export async function GET(req: NextRequest) {
   }
   doc.end();
   const buf = await done;
+
+  // tandai semua order yang ikut dalam file ini sebagai sudah di-download
+  await q(`UPDATE sjp_visit_order SET pdf_downloaded_at = now(), pdf_downloaded_by = $2 WHERE order_id = ANY($1)`,
+    [orders.map((o) => o.order_id), s.username]);
 
   const fname = `SuratPesanan_${label.replace(/[^\w-]+/g, "_")}${femp ? `_${femp}` : ""}.pdf`;
   return new NextResponse(buf as any, {

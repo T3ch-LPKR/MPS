@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import PDFDocument from "pdfkit";
+import { q } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { loadOrdersForPdf, renderSuratPesanan } from "@/lib/suratPesanan";
 
@@ -23,6 +24,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   renderSuratPesanan(doc, orders[0], s.username);
   doc.end();
   const buf = await done;
+
+  // tandai sudah di-download (timestamp terakhir + siapa)
+  await q(`UPDATE sjp_visit_order SET pdf_downloaded_at = now(), pdf_downloaded_by = $2 WHERE order_id = $1`,
+    [id, s.username]);
 
   return new NextResponse(buf as any, {
     status: 200,

@@ -6,7 +6,7 @@ export type Col = {
   key: string;
   label: string;
   align?: "left" | "center" | "right";
-  fmt?: "text" | "int" | "pct" | "rp" | "date" | "datetime" | "pill" | "tag" | "bar" | "mn" | "mnbar";
+  fmt?: "text" | "int" | "pct" | "rp" | "date" | "datetime" | "pill" | "tag" | "bar" | "mn" | "mnbar" | "stat";
   color?: string; // warna teks sel (hex), utk meniru warna kolom Power BI
 };
 
@@ -64,6 +64,8 @@ export default function SortableTable({
       );
     }
     if (c.fmt === "tag") return v ? <span className="pill p-warn">{v}</span> : "—";
+    // "stat": pill status bebas, tone dari row.__tone_<key>, nilai kosong = "Belum"
+    if (c.fmt === "stat") return <span className={`pill ${row["__tone_" + c.key] || "p-mut"}`}>{v || "Belum"}</span>;
     // "mn": angka juta ala PBI (994M); "mnbar": + data bar (lebar dari row.__pct_<key>, 0–100)
     if (c.fmt === "mn" || c.fmt === "mnbar") {
       const num = Number(v) || 0;
