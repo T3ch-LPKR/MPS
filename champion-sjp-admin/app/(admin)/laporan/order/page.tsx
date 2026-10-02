@@ -75,6 +75,8 @@ export default async function OrderReportPage({ searchParams }: { searchParams: 
     dl: r.dl_at ? `✓ ${r.dl_at}` : "", "__tone_dl": r.dl_at ? "p-ok" : "p-mut",
     aksi: (
       <span className="whitespace-nowrap">
+        {/* Print = PDF yang sama dibuka di tab (inline) -> tinggal Ctrl+P; status ikut tertandai */}
+        <a href={`/api/order/pdf/${r.order_id}?inline=1`} target="_blank" rel="noreferrer" className="btn btn-sm">🖨 Preview Print</a>{" "}
         <a href={`/api/order/pdf/${r.order_id}`} className="btn btn-sm" download>PDF</a>{" "}
         <Link href={`/laporan/order/${r.order_id}`} className="btn btn-sm">✎ Edit</Link>
       </span>
@@ -92,7 +94,7 @@ export default async function OrderReportPage({ searchParams }: { searchParams: 
     { key: "total", label: "Total", align: "right", fmt: "rp" },
     { key: "notes", label: "Notes" },
     { key: "last_by", label: "Oleh" },
-    { key: "dl", label: "Download", align: "center", fmt: "stat" },
+    { key: "dl", label: "Download/Print", align: "center", fmt: "stat" },
     { key: "aksi", label: "Aksi", align: "center" },
   ];
 
@@ -135,6 +137,7 @@ export default async function OrderReportPage({ searchParams }: { searchParams: 
               <button className="btn btn-sm" type="submit">Cari</button>
               {nsp != null ? <Link href={`/laporan/order${qs}`} className="btn btn-sm">✕</Link> : null}
             </form>
+            <a href={`/api/order/pdf${qs}${qs ? "&" : "?"}inline=1`} target="_blank" rel="noreferrer" className="btn btn-sm">🖨 Preview Print Semua</a>
             <a href={`/api/order/pdf${qs}`} className="btn btn-sm" download>⬇ Download Semua (PDF)</a>
           </div>
         </div>

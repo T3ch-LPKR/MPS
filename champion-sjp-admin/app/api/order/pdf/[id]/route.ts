@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import PDFDocument from "pdfkit";
 import { q } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -6,8 +6,10 @@ import { loadOrdersForPdf, renderSuratPesanan } from "@/lib/suratPesanan";
 
 export const dynamic = "force-dynamic";
 
-// PDF Surat Pesanan satu order.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+// PDF Surat Pesanan satu order. ?inline=1 -> tampil di tab browser (untuk Print), bukan unduhan;
+// keduanya sama-sama menandai pdf_downloaded_at.
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const inline = req.nextUrl.searchParams.get("inline") === "1";
   const s = await getSession();
   if (!s || !["admin", "superadmin", "hos"].includes(s.role)) {
     return new NextResponse("unauthorized", { status: 401 });
@@ -33,7 +35,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="SuratPesanan_${String(id).padStart(6, "0")}.pdf"`,
+      "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="SuratPesanan_${String(id).padStart(6, "0")}.pdf"`,
       "Cache-Control": "no-store",
     },
   });

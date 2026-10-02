@@ -43,6 +43,7 @@ export default async function AdminEditOrderPage({ params }: { params: { id: str
       <div className="text-sm text-mut mb-3">{head.nama} · {head.emp_name} · {new Date(head.tgl).toLocaleDateString("id")}</div>
       <div className="flex gap-2 mb-4">
         <Link href="/laporan/order" className="btn btn-sm">← Daftar Order</Link>
+        <a href={`/api/order/pdf/${orderId}?inline=1`} target="_blank" rel="noreferrer" className="btn btn-sm">🖨 Preview Print</a>
         <a href={`/api/order/pdf/${orderId}`} className="btn btn-sm" download>PDF Surat Pesanan</a>
       </div>
       <div className="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-4 items-start">

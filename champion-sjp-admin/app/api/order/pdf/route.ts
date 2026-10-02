@@ -39,12 +39,13 @@ export async function GET(req: NextRequest) {
   await q(`UPDATE sjp_visit_order SET pdf_downloaded_at = now(), pdf_downloaded_by = $2 WHERE order_id = ANY($1)`,
     [orders.map((o) => o.order_id), s.username]);
 
+  const inline = req.nextUrl.searchParams.get("inline") === "1"; // ?inline=1 -> buka di tab utk Print
   const fname = `SuratPesanan_${label.replace(/[^\w-]+/g, "_")}${femp ? `_${femp}` : ""}.pdf`;
   return new NextResponse(buf as any, {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${fname}"`,
+      "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${fname}"`,
       "Cache-Control": "no-store",
     },
   });
