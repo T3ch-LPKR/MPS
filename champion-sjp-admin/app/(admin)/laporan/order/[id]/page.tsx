@@ -14,6 +14,7 @@ export default async function AdminEditOrderPage({ params }: { params: { id: str
   const head = await q1<any>(`
     SELECT o.order_id, o.visit_id, o.tgl::text tgl, o.notes, o.disc_type, o.disc_value,
            e.emp_name, COALESCE(c.cust_name, p.nama_usaha, o.cust_code, o.prospek_id) nama,
+           COALESCE(o.cust_code, o.prospek_id) kode,
            o.created_by, o.created_at, o.updated_by, o.updated_at
     FROM sjp_visit_order o
     JOIN sjp_employee e ON e.emp_id = o.emp_id
@@ -40,7 +41,9 @@ export default async function AdminEditOrderPage({ params }: { params: { id: str
   return (
     <>
       <div className="mb-1 text-xl font-bold">Edit Order #{orderId}</div>
-      <div className="text-sm text-mut mb-3">{head.nama} · {head.emp_name} · {new Date(head.tgl).toLocaleDateString("id")}</div>
+      <div className="text-sm text-mut mb-3">
+        {head.nama} {head.kode ? <span className="font-mono text-ink">({head.kode})</span> : null} · {head.emp_name} · {new Date(head.tgl).toLocaleDateString("id")}
+      </div>
       <div className="flex gap-2 mb-4">
         <Link href="/laporan/order" className="btn btn-sm">← Daftar Order</Link>
         <a href={`/api/order/pdf/${orderId}?inline=1`} target="_blank" rel="noreferrer" className="btn btn-sm">🖨 Preview Print</a>

@@ -69,18 +69,22 @@ export function renderSuratPesanan(doc: PDFDoc, d: OrderPdfData, printedBy: stri
   doc.font("Helvetica-Bold").fontSize(12).text(`No. :  ${String(d.order_id).padStart(6, "0")}`, 380, 70, { width: R - 380, align: "right" });
   hr(doc, 90, L, R, 1.2);
 
-  // ===== Nama toko + tanggal =====
+  // ===== Nama toko + kode customer + tanggal =====
   doc.font("Helvetica-Bold").fontSize(10).text("Nama Toko :", L, 104);
   doc.font("Helvetica").fontSize(10).text(d.toko, L, 118, { width: 280 });
   const alamatY = doc.y + 2;
   doc.fontSize(9).fillColor("#222").text(d.alamat || "", L, alamatY, { width: 280 });
+  // kode customer master (Cust_Code) — tegas & berlabel; prospek = belum tertaut ke master
+  doc.fillColor("#000").font("Helvetica-Bold").fontSize(10)
+    .text(`Kode Cust : ${d.kode || "-"}${d.kode && d.kode.startsWith("PROSPEK") ? "  (belum tertaut)" : ""}`,
+      L, doc.y + 3, { width: 280 });
   doc.fillColor("#000").font("Helvetica").fontSize(10)
     .text(`Jakarta,  ${dd} / ${mm} / ${yy}`, 360, 112, { width: R - 360, align: "right" });
 
   // ===== Judul =====
   let y = Math.max(doc.y + 10, 168);
   doc.font("Helvetica-Bold").fontSize(14).text("SURAT PESANAN", L, y, { width: R - L, align: "center", underline: true });
-  if (d.kode) doc.font("Helvetica").fontSize(10).text(d.kode, L, y + 20, { width: R - L, align: "center" });
+  if (d.kode) doc.font("Helvetica-Bold").fontSize(11).text(d.kode, L, y + 20, { width: R - L, align: "center" });
   y += d.kode ? 38 : 24;
   doc.font("Helvetica").fontSize(10).text("Bersama ini kami pesan barang-barang sbb :", L, y);
   y += 16;
