@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { q } from "@/lib/db";
-import { scheduledOn, bizDow } from "@/lib/scheduleRule";
+import { scheduledOn, bizDow, normDates } from "@/lib/scheduleRule";
 
 const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const HARI = ["Sen","Sel","Rab","Kam","Jum","Sab"];
@@ -29,10 +29,11 @@ export default async function AssignCalendar({
   // ambil assignment salesman terpilih
   const assigns = emp
     ? await q<any>(
-        `SELECT a.frekuensi, a.hari_mask, a.minggu_ke, a.cust_code, c.cust_name
+        `SELECT a.frekuensi, a.hari_mask, a.minggu_ke, a.custom_dates, a.cust_code, c.cust_name
            FROM sjp_assignment a JOIN sjp_customer c ON c.cust_code=a.cust_code
           WHERE a.is_active AND a.emp_id=$1 ORDER BY c.cust_name`, [emp])
     : [];
+  for (const a of assigns) a.custom_dates = normDates(a.custom_dates); // pg date[] -> ['YYYY-MM-DD']
 
   // bangun matriks minggu (kolom Sen..Sab)
   const daysInMonth = new Date(year, month, 0).getDate();

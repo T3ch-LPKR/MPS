@@ -9,6 +9,8 @@ import CustomerSearch from "./CustomerSearch";
 import SubmitButton from "@/components/SubmitButton";
 
 const HARI = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+const MAX_CUSTOM = 4;
+const BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 type Initial = {
   assign_id: number;
@@ -18,7 +20,76 @@ type Initial = {
   frekuensi: string;
   hari_mask: number;
   minggu_ke: number | null;
+  custom_dates?: string[] | null; // YYYY-MM-DD (frekuensi C)
 };
+
+// Mini-kalender pemilih tanggal untuk frekuensi Custom (maks 4 tanggal, Minggu libur).
+function CustomDatePicker({ dates, onChange }: { dates: string[]; onChange: (d: string[]) => void }) {
+  const now = new Date();
+  const [ym, setYm] = useState<[number, number]>([now.getFullYear(), now.getMonth()]); // [tahun, 0-11]
+  const [yy, mm] = ym;
+  const lastDay = new Date(yy, mm + 1, 0).getDate();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toYmd = (day: number) => `${yy}-${pad(mm + 1)}-${pad(day)}`;
+  const full = dates.length >= MAX_CUSTOM;
+
+  const toggle = (day: number) => {
+    const v = toYmd(day);
+    if (dates.includes(v)) onChange(dates.filter((x) => x !== v));
+    else if (!full) onChange([...dates, v].sort());
+  };
+  const fmt = (v: string) => {
+    const [, m, d] = v.split("-").map(Number);
+    return `${d} ${BULAN[m - 1]}`;
+  };
+
+  // grid: kolom Sen..Sab (Minggu tidak ditampilkan — libur)
+  const cells: (number | null)[] = [];
+  for (let day = 1; day <= lastDay; day++) {
+    const dow = (new Date(yy, mm, day).getDay() + 6) % 7; // 0=Sen..6=Min
+    if (dow === 6) continue; // skip Minggu
+    if (day === 1 || cells.length === 0) for (let i = 0; i < dow; i++) cells.push(null);
+    else if (dow === 0) { /* baris baru rapi: isi sisa kolom */ while (cells.length % 6 !== 0) cells.push(null); }
+    cells.push(day);
+  }
+  while (cells.length % 6 !== 0) cells.push(null);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <button type="button" className="btn btn-sm" onClick={() => setYm(mm === 0 ? [yy - 1, 11] : [yy, mm - 1])}>‹</button>
+        <div className="text-sm font-bold">{BULAN[mm]} {yy}</div>
+        <button type="button" className="btn btn-sm" onClick={() => setYm(mm === 11 ? [yy + 1, 0] : [yy, mm + 1])}>›</button>
+      </div>
+      <div className="grid grid-cols-6 gap-1 text-center text-[11px] text-mut font-semibold mb-1">
+        {HARI.map((h) => <div key={h}>{h}</div>)}
+      </div>
+      <div className="grid grid-cols-6 gap-1">
+        {cells.map((day, i) => day == null ? <div key={i} /> : (() => {
+          const v = toYmd(day);
+          const on = dates.includes(v);
+          return (
+            <button type="button" key={i} onClick={() => toggle(day)}
+              disabled={!on && full}
+              className={`py-1.5 rounded-lg text-sm border ${on ? "bg-brand text-white border-brand font-bold" : "bg-white border-line hover:bg-brand-soft disabled:opacity-35 disabled:cursor-not-allowed"}`}>
+              {day}
+            </button>
+          );
+        })())}
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-2 items-center">
+        {dates.length === 0 ? <span className="text-[11px] text-mut">Belum ada tanggal dipilih.</span> :
+          dates.map((v) => (
+            <span key={v} className="pill p-info">
+              {fmt(v)}
+              <button type="button" className="ml-0.5 font-bold" onClick={() => onChange(dates.filter((x) => x !== v))}>×</button>
+            </span>
+          ))}
+        <span className={`text-[11px] ${full ? "text-warn font-semibold" : "text-mut"}`}>({dates.length}/{MAX_CUSTOM}{full ? " — maks. 4 tanggal" : ""})</span>
+      </div>
+    </div>
+  );
+}
 
 export default function AssignForm({
   salesmen,
@@ -30,6 +101,7 @@ export default function AssignForm({
   const [state, action] = useFormState(addAssignment as any, {} as any);
   const editing = !!initial;
   const [frekuensi, setFrekuensi] = useState(initial?.frekuensi || "W");
+  const [customDates, setCustomDates] = useState<string[]>(initial?.custom_dates || []);
   const router = useRouter();
   const doneRef = useRef<any>(null);
 
@@ -80,22 +152,30 @@ export default function AssignForm({
         </select>
       </div>
 
-      <div>
-        <label className="lbl">Hari kunjungan</label>
-        <div className="flex flex-wrap gap-2">
-          {HARI.map((h, i) => (
-            <label key={i} className="flex items-center gap-1.5 text-sm border border-line rounded-full px-3 py-1.5 cursor-pointer has-[:checked]:bg-brand-soft has-[:checked]:border-brand">
-              <input
-                type="checkbox"
-                name={`hari_${i}`}
-                className="accent-brand"
-                defaultChecked={initial ? Boolean(initial.hari_mask & (1 << i)) : false}
-              />{" "}
-              {h}
-            </label>
-          ))}
+      {frekuensi === "C" ? (
+        <div>
+          <label className="lbl">Tanggal kunjungan <span className="text-mut font-normal text-[11px]">(bebas, maks. {MAX_CUSTOM} tanggal, tanpa pola)</span></label>
+          <input type="hidden" name="custom_dates" value={customDates.join(",")} />
+          <CustomDatePicker dates={customDates} onChange={setCustomDates} />
         </div>
-      </div>
+      ) : (
+        <div>
+          <label className="lbl">Hari kunjungan</label>
+          <div className="flex flex-wrap gap-2">
+            {HARI.map((h, i) => (
+              <label key={i} className="flex items-center gap-1.5 text-sm border border-line rounded-full px-3 py-1.5 cursor-pointer has-[:checked]:bg-brand-soft has-[:checked]:border-brand">
+                <input
+                  type="checkbox"
+                  name={`hari_${i}`}
+                  className="accent-brand"
+                  defaultChecked={initial ? Boolean(initial.hari_mask & (1 << i)) : false}
+                />{" "}
+                {h}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {frekuensi === "BW" ? (
         <div>

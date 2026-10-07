@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { q } from "@/lib/db";
-import { scheduledOn } from "@/lib/scheduleRule";
+import { scheduledOn, normDates } from "@/lib/scheduleRule";
 
 export async function generateSchedule(_prev: any, formData: FormData) {
   const weekStart = String(formData.get("week_start") || ""); // YYYY-MM-DD (Senin)
@@ -10,8 +10,9 @@ export async function generateSchedule(_prev: any, formData: FormData) {
   const monday = new Date(weekStart + "T00:00:00");
 
   const assigns = await q<any>(
-    `SELECT assign_id, cust_code, emp_id, frekuensi, hari_mask, minggu_ke FROM sjp_assignment WHERE is_active`
+    `SELECT assign_id, cust_code, emp_id, frekuensi, hari_mask, minggu_ke, custom_dates FROM sjp_assignment WHERE is_active`
   );
+  for (const a of assigns) a.custom_dates = normDates(a.custom_dates); // pg date[] -> ['YYYY-MM-DD']
 
   const rows: any[] = [];
   for (let i = 0; i < 6; i++) {

@@ -4,6 +4,7 @@ import AssignForm from "./AssignForm";
 import AssignCalendar from "./AssignCalendar";
 import { deleteAssignment } from "./actions";
 import SubmitButton from "@/components/SubmitButton";
+import { normDates } from "@/lib/scheduleRule";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,13 @@ const FREK: any = { W: "Weekly", BW: "Bi-Weekly", M: "Monthly", C: "Custom" };
 function hariLabel(mask: number) {
   const d = HARI.filter((_, i) => mask & (1 << i));
   return d.length ? d.join(", ") : "—";
+}
+
+// kolom "Hari" utk frekuensi C: ringkasan tanggal spesifik (d/m), bukan nama hari
+function tglLabel(dates: any[] | null) {
+  const ds = normDates(dates);
+  if (ds.length === 0) return "— (belum ada tanggal)";
+  return ds.map((v) => { const [, m, d] = v.split("-").map(Number); return `${d}/${m}`; }).join(", ");
 }
 
 function Tabs({ tab }: { tab: string }) {
@@ -38,9 +46,10 @@ export default async function MasterPage({ searchParams }: {
   let initial: any = null;
   if (searchParams.edit) {
     initial = await q1<any>(
-      `SELECT a.assign_id, a.cust_code, c.cust_name, a.emp_id, a.frekuensi, a.hari_mask, a.minggu_ke
+      `SELECT a.assign_id, a.cust_code, c.cust_name, a.emp_id, a.frekuensi, a.hari_mask, a.minggu_ke, a.custom_dates
          FROM sjp_assignment a JOIN sjp_customer c ON c.cust_code=a.cust_code
         WHERE a.assign_id=$1`, [Number(searchParams.edit)]);
+    if (initial) initial.custom_dates = normDates(initial.custom_dates); // pg date[] -> ['YYYY-MM-DD']
   }
 
   return (
@@ -119,7 +128,7 @@ async function AssignList({ salesmen, fq, ffrek, femp, ap }: {
 
   const rows = await q<any>(`
     SELECT a.assign_id, a.cust_code, c.cust_name, c.area, a.emp_id, e.emp_name,
-           a.frekuensi, a.hari_mask, a.minggu_ke
+           a.frekuensi, a.hari_mask, a.minggu_ke, a.custom_dates
     FROM sjp_assignment a
     JOIN sjp_customer c ON c.cust_code = a.cust_code
     LEFT JOIN sjp_employee e ON e.emp_id = a.emp_id
@@ -182,7 +191,7 @@ async function AssignList({ salesmen, fq, ffrek, femp, ap }: {
                 <td className="td"><b>{r.cust_name}</b><div className="text-[11px] text-mut">{r.area || ""}</div></td>
                 <td className="td">{r.emp_name || r.emp_id}</td>
                 <td className="td"><span className="pill p-info">{FREK[r.frekuensi]}</span></td>
-                <td className="td text-xs">{hariLabel(r.hari_mask)}{r.minggu_ke ? ` (mgg-${r.minggu_ke})` : ""}</td>
+                <td className="td text-xs">{r.frekuensi === "C" ? tglLabel(r.custom_dates) : <>{hariLabel(r.hari_mask)}{r.minggu_ke ? ` (mgg-${r.minggu_ke})` : ""}</>}</td>
                 <td className="td whitespace-nowrap">
                   <Link href={`/master?tab=assign&edit=${r.assign_id}`} className="btn btn-sm">Edit</Link>
                   <form action={deleteAssignment} className="inline ml-1">
