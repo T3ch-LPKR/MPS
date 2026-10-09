@@ -197,16 +197,26 @@ export default async function DashboardSJPPage({ searchParams }: { searchParams:
       ) : null}
 
       <KpiStrip size="lg" items={[
-        { label: "Cust Dikunjungi", value: K.cust },
-        { label: "Salesman", value: K.sales },
-        { label: "Plan", value: K.plan },
-        { label: "Realization", value: K.done },
-        { label: "Compliance %", value: lov ? "–" : `${pct1(K.done, K.plan)}%`, lead: true, sub: lov ? "n/a saat filter catatan" : `${K.done}/${K.plan}` },
-        { label: "OOS", value: K.oos },
-        { label: "Effective Call", value: K.eff },
-        { label: "EC %", value: `${pct1(K.eff, K.visit)}%` },
-        { label: "AR Follow Up", value: K.arf },
-        { label: "AR Collection", value: mn(K.arc), sub: rp(K.arc) },
+        { label: "Cust Dikunjungi", value: K.cust,
+          info: "Jumlah customer unik yang dikunjungi (check-in) pada periode ini. Customer yang dikunjungi berkali-kali tetap dihitung 1." },
+        { label: "Salesman", value: K.sales,
+          info: "Jumlah salesman unik yang melakukan kunjungan pada periode ini." },
+        { label: "Plan", value: K.plan,
+          info: "Total jadwal kunjungan pada periode ini (hasil Generate dari assignment)." },
+        { label: "Realization", value: K.done,
+          info: "Jadwal yang sudah di-check-in. Satu jadwal dihitung maksimal satu kali, jadi tidak pernah melebihi Plan. Kunjungan di luar jadwal tidak dihitung di sini (masuk OOS)." },
+        { label: "Compliance %", value: lov ? "–" : `${pct1(K.done, K.plan)}%`, lead: true, sub: lov ? "n/a saat filter catatan" : `${K.done}/${K.plan}`,
+          info: "Kepatuhan jadwal = Realization ÷ Plan × 100%. Contoh: 198/261 = 75,9%." },
+        { label: "OOS", value: K.oos,
+          info: "Out of Schedule: kunjungan di luar jadwal (salesman check-in ke toko yang tidak terjadwal hari itu, dengan alasan OOS)." },
+        { label: "Effective Call", value: K.eff,
+          info: "Kunjungan yang menghasilkan order (catatan 'Reorder produk')." },
+        { label: "EC %", value: `${pct1(K.eff, K.visit)}%`,
+          info: `Effective Call ÷ total kunjungan × 100%. Total kunjungan periode ini = ${K.visit} (terjadwal + OOS).` },
+        { label: "AR Follow Up", value: K.arf,
+          info: "Jumlah kunjungan dengan catatan 'Penagihan AR' (menagih piutang, apa pun hasilnya)." },
+        { label: "AR Collection", value: mn(K.arc), sub: rp(K.arc),
+          info: "Total nominal penagihan yang dicatat salesman saat kunjungan (Lunas = outstanding customer; Sebagian = nominal yang diinput). M = juta rupiah." },
       ]} />
 
       <div className="card p-4 mb-4">
