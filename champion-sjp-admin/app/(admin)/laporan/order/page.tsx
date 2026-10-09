@@ -16,8 +16,10 @@ export default async function OrderReportPage({ searchParams }: { searchParams: 
   const femp = searchParams.femp || "";
   // Cari No. SP (= order_id, tampil 6 digit): bila diisi, cari di SEMUA tanggal (abaikan periode)
   const nsp = /^\d+$/.test(String(searchParams.nsp || "").trim()) ? Number(searchParams.nsp) : null;
-  // Filter status download PDF: semua (default) | belum | sudah
-  const dl = searchParams.dl === "sudah" || searchParams.dl === "belum" ? searchParams.dl : "semua";
+  // Filter status download PDF: belum (default) | sudah | semua
+  const dl = searchParams.dl === "sudah" || searchParams.dl === "semua" ? searchParams.dl : "belum";
+  // saat cari No. SP, abaikan filter status agar SP yang sudah di-download tetap ketemu
+  const dlEff = nsp != null ? "semua" : dl;
   const salesmen = await q<any>(`SELECT emp_id, emp_name FROM sjp_employee WHERE is_salesman ORDER BY emp_name`);
 
   const rows = await q<any>(`
@@ -36,7 +38,7 @@ export default async function OrderReportPage({ searchParams }: { searchParams: 
     WHERE ($4::int IS NOT NULL OR (o.tgl BETWEEN $1 AND $2 AND ($3='' OR o.emp_id=$3)))
       AND ($4::int IS NULL OR o.order_id = $4)
       AND ($5 = 'semua' OR ($5 = 'sudah') = (o.pdf_downloaded_at IS NOT NULL))
-    ORDER BY o.tgl DESC, o.order_id DESC`, [first, last, femp, nsp, dl]);
+    ORDER BY o.tgl DESC, o.order_id DESC`, [first, last, femp, nsp, dlEff]);
 
   const num = (x: any) => Number(x || 0);
   const T = rows.reduce((a: any, r: any) => ({
@@ -60,7 +62,7 @@ export default async function OrderReportPage({ searchParams }: { searchParams: 
   })();
   const hrefDl = (v: string) => {
     const p = baseP();
-    if (v !== "semua") p.set("dl", v);
+    if (v !== "belum") p.set("dl", v); // default (tanpa param) = belum
     const s = p.toString();
     return `/laporan/order${s ? "?" + s : ""}`;
   };
@@ -119,7 +121,7 @@ export default async function OrderReportPage({ searchParams }: { searchParams: 
             <div className="text-[13px] font-bold">Daftar Order — {nsp != null ? `No. SP ${String(nsp).padStart(6, "0")}` : label}</div>
             {/* filter status download PDF */}
             <div className="flex gap-1 text-xs">
-              {([["semua", "Semua"], ["belum", "Belum di-download"], ["sudah", "Sudah"]] as const).map(([v, lbl]) => (
+              {([["belum", "Belum di-download"], ["sudah", "Sudah"], ["semua", "Semua"]] as const).map(([v, lbl]) => (
                 <Link key={v} href={hrefDl(v)} className={`btn btn-sm ${dl === v ? "btn-pri" : ""}`}>{lbl}</Link>
               ))}
             </div>

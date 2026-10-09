@@ -84,8 +84,8 @@ export function renderSuratPesanan(doc: PDFDoc, d: OrderPdfData, printedBy: stri
   // ===== Judul =====
   let y = Math.max(doc.y + 10, 168);
   doc.font("Helvetica-Bold").fontSize(14).text("SURAT PESANAN", L, y, { width: R - L, align: "center", underline: true });
-  if (d.kode) doc.font("Helvetica-Bold").fontSize(11).text(d.kode, L, y + 20, { width: R - L, align: "center" });
-  y += d.kode ? 38 : 24;
+  // kode customer cukup sekali — sudah tegas di blok Nama Toko ("Kode Cust : …")
+  y += 24;
   doc.font("Helvetica").fontSize(10).text("Bersama ini kami pesan barang-barang sbb :", L, y);
   y += 16;
 
@@ -115,7 +115,11 @@ export function renderSuratPesanan(doc: PDFDoc, d: OrderPdfData, printedBy: stri
   };
 
   for (const it of orderItems) row(rp(it.qty), it.item_name, rp(it.price), rp(it.total));
-  row(rp(totalQty), "", "", "", { bold: true }); // total qty spt formulir kertas
+  // total qty (spt formulir kertas) hanya bila item lebih dari satu, dgn garis penjumlahan
+  if (orderItems.length >= 2) {
+    doc.moveTo(cols[0] + 10, y + 1).lineTo(cols[1] - 10, y + 1).lineWidth(0.7).strokeColor("#000").stroke();
+    row(rp(totalQty), "", "", "", { bold: true });
+  }
   for (const it of bonusItems) row(rp(it.qty), `Bonus — ${it.item_name}`, "-", "-", { mut: true });
   if (d.disc_amount > 0) {
     row("", d.disc_type === "PCT" ? `Diskon ${rp(d.disc_value || 0)}%` : "Diskon", "", `- ${rp(d.disc_amount)}`, { bold: true });
